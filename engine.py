@@ -72,7 +72,7 @@ class LangevinEngine:
         v : float
             Velocity drawn from the Maxwell-Boltzmann distribution
         """
-        return np.sqrt(self.temperature) * np.random.randn()
+        return np.sqrt(self.temperature) * np.random.randn()    # normal distribution?
 
     def set_phasepoint(self, ph):
         """ Sets the phasepoint of the engine.

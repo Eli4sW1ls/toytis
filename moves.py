@@ -126,10 +126,10 @@ def swap_zero(ensembles):
 
     The path of the [0^-] ensemble is extended into the [0^+] ensemble by
     propagating the last path forwards in time. We keep the last two
-    phasepoints of [0^+], and extend starting from the last phasepoint.
+    phasepoints of [0^-], and extend starting from the last phasepoint.
     The path of the [0^+] ensemble is extended into the [0^-] ensemble
     by propagating the last path backwards in time. We keep the first two
-    phasepoints of [0^-], and extend starting from the first phasepoint.
+    phasepoints of [0^+], and extend starting from the first phasepoint.
 
     Parameters
     ----------

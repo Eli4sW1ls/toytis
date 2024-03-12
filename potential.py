@@ -8,7 +8,7 @@ class Potential:
     def __init__(self):
         """Initialize the Potential object.
 
-        This one is a dummy potenttial representing a double well with
+        This one is a dummy potential representing a double well with
         sigmoid modulated sine bumps.
 
         """

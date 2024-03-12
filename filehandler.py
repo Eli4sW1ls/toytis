@@ -14,7 +14,7 @@ def make_ens_dirs_and_files(id):
         Unique identifier of the ensemble
 
     """
-    id = str(id)
+    id = str(id).zfill(3)
     # make directory for ensemble
     if not os.path.exists(id):
         os.makedirs(id)

@@ -606,12 +606,12 @@ class Ensemble:
         """
         if flag == "ACC":
             # we load the ACC, min and max columns (string, float, float)
-            data = np.loadtxt("00"+str(self.id) + "/pathensemble.txt",
+            data = np.loadtxt(str(self.id).zfill(3) + "/pathensemble.txt",
                               usecols=(7, 9, 10), dtype=str)
             data = data[data[:, 0] == "ACC"]
             data = data[:, 1:].astype(float)
         elif flag == "REJ":
-            data = np.loadtxt("00"+str(self.id) + "/pathensemble.txt",
+            data = np.loadtxt(str(self.id).zfill(3) + "/pathensemble.txt",
                               usecols=(7, 9, 10), dtype=str)
             data = data[data[:, 0] != "ACC"]
             data = data[:, 1:].astype(float)
