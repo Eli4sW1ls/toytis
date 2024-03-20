@@ -26,7 +26,7 @@ class Simulation:
     ensembles : list of :py:class:`Ensemble` objects
         List of ensembles
     simtype : str
-        Type of simulation to perform. This is either "repptis" or "retis"
+        Type of simulation to perform. This is either "repptis", "retis" or "i*"
     method : str
         How is the simulation initialized? Either via loading of acceptable
         paths for each ensemble, or via a restart of a previous simulation.
@@ -220,7 +220,7 @@ class Simulation:
 
         # Then we make the body ensembles
         for i in range(0, len(self.intfs) - 2):
-            ens_set["id"] = i + 2
+            ens_set["id"] = i + 1
             if self.simtype == "repptis":
                 ens_set["intfs"] = {"L": self.intfs[i],
                                     "M": self.intfs[i + 1],
@@ -233,6 +233,13 @@ class Simulation:
                                     "R": self.intfs[-1]}
                 ens_set["ens_type"] = "body_TIS"
                 ens_set["name"] = f"[{i+1}+]"
+            elif self.simtype == "i*":
+                ens_set["intfs"] = {"L": self.intfs[i],
+                                    "M": self.intfs[i + 1],
+                                    "R": self.intfs[i+2],
+                                    "all": self.intfs}          # can be truncated if not all interfaces are taken into account
+                ens_set["ens_type"] = "body_i*"
+                ens_set["name"] = f"[{i+1}*]"
             logger.info("Making ensemble {}".format(ens_set["name"]))
             self.ensembles.append(Ensemble(ens_set))
 

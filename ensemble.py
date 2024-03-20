@@ -66,7 +66,7 @@ class Ensemble:
         Set containing the extremal conditions of the ensemble. This is the
         union of the start and end conditions.
     simtype : str
-        Type of simulation to perform. This is either "repptis" or "retis"
+        Type of simulation to perform. This is either "repptis", "retis" or "i*"
     save_pe2 : bool
         Whether to save more accepted paths to a pathensemble2.txt file or not
         Default is False. 
@@ -322,6 +322,11 @@ class Ensemble:
             self.start_conditions = {"L", "R"}
             self.end_conditions = {"L", "R"}
             self.cross_conditions = {}
+        
+        elif self.ens_type == "body_i*":
+            self.start_conditions = {"turn", "L", "R"}
+            self.end_conditions = {"turn", "L", "R"}
+            self.cross_conditions = {"M"}
 
         else:
             raise ValueError("Unknown ensemble type: {}".format(self.ens_type))

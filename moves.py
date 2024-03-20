@@ -92,6 +92,10 @@ def shooting_move(ens, level=0):
     if not ens.check_cross(new_path):
         logger.debug("New path does not satisfy ensemble crossing conditions")
         return "NCR", new_path
+    elif ens.ens_type == "body_i*":
+        ptype = ens.get_ptype(new_path)
+        if ptype.count("R") > 1 or ptype.count("L") > 1:
+            if 
     else:
         logger.debug("New path satisfies ensemble crossing conditions.")
         return "ACC", new_path
@@ -491,12 +495,14 @@ def propagate(ens, sh, reverse, maxlen):
         logger.debug("Propagating backwards")
         conds = {"cond": ens.start_conditions,
                  "rej_intf": "BWI",
+                 "rej_turn": "BTU",
                  "rej_maxlen": "BTL",
                  "type_cond": "start"}
     elif reverse == 1:
         logger.debug("Propagating forwards")
         conds = {"cond": ens.end_conditions,
                  "rej_intf": "FWI",
+                 "rej_turn": "FTU",
                  "rej_maxlen": "FTL",
                  "type_cond": "end"}
     else:
@@ -530,6 +536,21 @@ def propagate(ens, sh, reverse, maxlen):
             logger.debug(f"Path too long ({run_len} >= {maxlen}).")
             status = conds['rej_maxlen']
             run_worthy = False
+            
+        if "turn" in ens.extremal_conditions:
+            if LR_pos == "M":
+                continue
+            AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
+            if AB_pos != "M":
+                run_worthy = False
+                msg = f"Path crossed into {"A" if AB_pos == "L" else "B"}, which terminates this [i*] path."
+                logger.debug(msg)
+                status = 'ACC'
+            elif turn_detected(ops, LR_pos):
+                run_worthy = False
+                msg = f"Path made a turn while moving {"forwards" if reverse == 1 else "backwards"}."
+                logger.debug(msg)
+                status = conds['rej_turn']
     
     if reverse == -1:
         trial_tuple = (phs[::-1], ops[::-1], ens.id)
@@ -574,6 +595,25 @@ def cut_extremal_phasepoints(ens, reverse, level=0):
     else:
         raise ValueError("reverse must be either 1 or -1")
     return ph_overlap, op_overlap, sh
+
+def turn_detected(ens, pos, ops):
+    """Detects if a path has made a turn. This is a termination condition of a path in the [i*] ensemble.
+    
+    NOTE: also return extreme interface?
+    """
+    ops_ = np.asarray(ops)
+    intfs = ens.intfs['all']
+    lr = -1 if pos == "L" else (1 if pos == "R" else None)
+    extr_op = lr*max(lr*ops_)
+    elig_intfs = np.asarray([int for int in intfs if lr*int <= lr*extr_op])
+    extr_idx = intfs.index(elig_intfs[np.abs(elig_intfs - extr_op).argmin()])
+
+    if len(ops) == extr_idx+1 or extr_op is None:
+        return False
+
+    extr_intf = intfs[extr_idx]
+
+    return len(lr*ops_[ops.index(extr_op):][lr*ops_[ops.index(extr_op):] < lr*np.asarray(intfs)[extr_idx-lr]]) > 0
 
 
 ###############################################################################
