@@ -324,8 +324,8 @@ class Ensemble:
             self.cross_conditions = {}
         
         elif self.ens_type == "body_i*":
-            self.start_conditions = {"turn", "L", "R"}
-            self.end_conditions = {"turn", "L", "R"}
+            self.start_conditions = {"L", "R"}
+            self.end_conditions = {"L", "R"}
             self.cross_conditions = {"M"}
 
         else:

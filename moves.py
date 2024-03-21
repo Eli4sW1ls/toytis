@@ -92,10 +92,52 @@ def shooting_move(ens, level=0):
     if not ens.check_cross(new_path):
         logger.debug("New path does not satisfy ensemble crossing conditions")
         return "NCR", new_path
+    
     elif ens.ens_type == "body_i*":
         ptype = ens.get_ptype(new_path)
         if ptype.count("R") > 1 or ptype.count("L") > 1:
-            if 
+            prop_idx = np.random.choice([0, -1])
+            rev = -np.sign(prop_idx+0.5)
+            prop_point = new_path.orders[prop_idx]
+            ext_status, ext_tuple = propagate(ens, prop_point, 
+                                              rev, shoot_maxlen-len(new_path.orders))
+            if rev == -1:
+                ext_path = Path(ext_tuple[0] + new_path.phasepoints,
+                                    bw_tuple[1] + new_path.orders,
+                                    ens.id)
+            else:
+                ext_path = Path(new_path.phasepoints + ext_tuple[0],
+                                    new_path.orders + bw_tuple[1],
+                                    ens.id)
+            if ext_status != "ACC":
+                logger.debug("Half extension not successful: {}".format(
+                    ext_status))
+                return ext_status, ext_path
+            else:
+                logger.debug("Extension performed successfully.")
+                return "ACC", ext_path
+        else:
+            bext_status, bext_tuple = propagate(ens, new_path.orders[0], -1., shoot_maxlen-len(new_path.orders))
+            if bw_status != "ACC": 
+                logger.debug("Backwards extension not successful: {}".format(
+                    bext_status))
+                return bw_status, Path(bext_tuple[0]+new_path.phasepoints,
+                                    bext_tuple[1]+new_path.orders,
+                                    ens.id)
+            
+            fext_status, fext_tuple = propagate(ens, new_path.orders[-1], 1.,
+                                    shoot_maxlen-len(bext_tuple[0])-len(new_path.orders))
+            if fw_status != "ACC":
+                logger.debug("Forwards extension not successful: {}".format(
+                    fext_status))
+                return fext_status, Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                                    bext_tuple[1] + new_path.orders + fw_tuple[1],
+                                    ens.id)
+            else:
+                logger.debug("Extension performed successfully.")
+                return "ACC", Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                                    bext_tuple[1] + new_path.orders + fw_tuple[1],
+                                    ens.id)
     else:
         logger.debug("New path satisfies ensemble crossing conditions.")
         return "ACC", new_path
@@ -521,6 +563,10 @@ def propagate(ens, sh, reverse, maxlen):
         run_len += 1
         LR_pos = check_position(op, ens.intfs['L'], ens.intfs['R'])
         if LR_pos in ens.extremal_conditions:
+            if ens.ens_type == "body_i*":
+                ens.start_conditions = {"turn"}
+                ens.end_conditions = {"turn"}
+                continue
             run_worthy = False
             if LR_pos in conds['cond']:
                 msg = f"Path crossed {LR_pos}, which is part of the "
@@ -538,8 +584,6 @@ def propagate(ens, sh, reverse, maxlen):
             run_worthy = False
             
         if "turn" in ens.extremal_conditions:
-            if LR_pos == "M":
-                continue
             AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
             if AB_pos != "M":
                 run_worthy = False
