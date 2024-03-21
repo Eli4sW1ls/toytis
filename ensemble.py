@@ -582,11 +582,19 @@ class Ensemble:
             start = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
+        elif self.ens_type == "body_i*":
+            # For body ensembles, we start at the left interface
+            rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
+            rand_start = np.random.randint(self.id-1)
+            start = self.intfs["all"][rand_start]*(1 - np.sign(self.intfs["L"])*0.001)
+            mid = (self.intfs["R"] + self.intfs["L"]) / 2
+            stop = self.intfs["all"][rand_stop]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "i*_0star":
             # For body ensembles, we start at the left interface
+            rand_stop = np.random.randint(1, len(self.intfs["all"]))
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
-            mid = (self.intfs["R"] + self.intfs["L"]) / 2
-            stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
+            mid = (rand_stop + self.intfs["L"]) / 2
+            stop = rand_stop*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "state_B":
             # For state B ensembles, we start at the left interface
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
@@ -598,6 +606,11 @@ class Ensemble:
         # We set the velocity of each point to zero.
         phasepoints1 = [(i,0.) for i in np.linspace(start, mid, N)]
         phasepoints2 = [(i,0.) for i in np.linspace(mid, stop, N)]
+        if self.ens_type == "i*_0star":
+            phasepoints2 += [ph for ph in phasepoints2 if ph >= self.intfs["all"][rand_stop-1]-0.002][::-1]
+        elif self.ens_type == "body_i*":
+            phasepoints1 = [ph for ph in phasepoints1 if ph <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)][::-1] + phasepoints1
+            phasepoints2 += [ph for ph in phasepoints2 if ph >= self.intfs["all"][rand_stop-1]*(1 - np.sign(self.intfs["all"][rand_stop-1])*0.001)][::1]
         orders1 = [self.orderparameter.calculate(ph) for ph in phasepoints1]
         orders2 = [self.orderparameter.calculate(ph) for ph in phasepoints2]
         phasepoints = phasepoints1 + phasepoints2[1:]
