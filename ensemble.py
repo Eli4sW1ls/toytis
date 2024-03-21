@@ -243,7 +243,7 @@ class Ensemble:
         type: int, int, int, str, int, str, str, float, float
 
         """
-        with open(str(self.id) + "/pathensemble.txt", "a") as f:
+        with open(str(self.id).zfill(3) + "/pathensemble.txt", "a") as f:
             f.write(PATH_FMT.format(
                 simcycle, cycle_acc, cycle_md, ptype[0], ptype[1], ptype[2],
                 plen, status, gen,
@@ -327,6 +327,15 @@ class Ensemble:
             self.start_conditions = {"L", "R"}
             self.end_conditions = {"L", "R"}
             self.cross_conditions = {"M"}
+        
+        elif self.ens_type == "i*_0star":
+            if self.prime_both_starts:
+                self.start_conditions = {"L", "R"}
+            else:
+                self.start_conditions = {"L"}  # no R because repptis_swap!!
+            self.illegal_pathtypes = {"RMR"}
+            self.end_conditions = {"L", "R"}
+            self.cross_conditions = {}
 
         else:
             raise ValueError("Unknown ensemble type: {}".format(self.ens_type))
@@ -573,6 +582,11 @@ class Ensemble:
             start = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
+        elif self.ens_type == "i*_0star":
+            # For body ensembles, we start at the left interface
+            start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
+            mid = (self.intfs["R"] + self.intfs["L"]) / 2
+            stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "state_B":
             # For state B ensembles, we start at the left interface
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)

@@ -587,12 +587,12 @@ def propagate(ens, sh, reverse, maxlen):
             AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
             if AB_pos != "M":
                 run_worthy = False
-                msg = f"Path crossed into {"A" if AB_pos == "L" else "B"}, which terminates this [i*] path."
+                msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
                 logger.debug(msg)
                 status = 'ACC'
             elif turn_detected(ops, LR_pos):
                 run_worthy = False
-                msg = f"Path made a turn while moving {"forwards" if reverse == 1 else "backwards"}."
+                msg = f"Path made a turn while moving {'forwards' if reverse == 1 else 'backwards'}."
                 logger.debug(msg)
                 status = conds['rej_turn']
     

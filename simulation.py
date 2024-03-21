@@ -215,6 +215,9 @@ class Simulation:
         elif self.simtype == "retis":
             ens_set["ens_type"] = "RETIS_0plus"
             ens_set["name"] = "[0+]"
+        elif self.simtype == "i*":
+            ens_set["ens_type"] = "i*_0star"
+            ens_set["name"] = "[0*]"
         logger.info("Making ensemble {}".format(ens_set["name"]))
         self.ensembles.append(Ensemble(ens_set))
 
