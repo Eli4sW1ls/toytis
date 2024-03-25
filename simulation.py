@@ -75,7 +75,7 @@ class Simulation:
             self.settings["Snakewait"] = 5
             logger.info("Creating dummy initial paths for the ensembles")
             for ens in self.ensembles:
-                ens.create_initial_path()
+                ens.create_initial_path(2000)
             logger.info("Done creating dummy initial paths for the ensembles")
         else:
             # load the ensembles from restart pickles
@@ -218,12 +218,14 @@ class Simulation:
         elif self.simtype == "i*":
             ens_set["ens_type"] = "i*_0star"
             ens_set["name"] = "[0*]"
+            intf_entry = {"all": self.intfs}
+            ens_set["intfs"].update(intf_entry)
         logger.info("Making ensemble {}".format(ens_set["name"]))
         self.ensembles.append(Ensemble(ens_set))
 
         # Then we make the body ensembles
         for i in range(0, len(self.intfs) - 2):
-            ens_set["id"] = i + 1
+            ens_set["id"] = i + 2
             if self.simtype == "repptis":
                 ens_set["intfs"] = {"L": self.intfs[i],
                                     "M": self.intfs[i + 1],
