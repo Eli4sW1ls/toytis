@@ -15,6 +15,7 @@ PATH_FMT = (
     '{7:3s} {8:2s} {9:>16.9e} {10:>16.9e} {11:>7d} {12:>7d} '
     '{13:>16.9e} {14:>7d} {15:7d} {16:>16.9e}'
 )
+ORDER_FMT = ('{:>10d}', '{:>12.6f}')
 
 class Ensemble:
     """ Representation of an ensemble in PPTIS
@@ -180,7 +181,7 @@ class Ensemble:
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
                               plen, status, gen, ordermin, ordermax)
         # and write to the order.txt file
-        # self.write_to_order_file(trial, self.cycle, ptype, plen, status, gen)
+        self.write_to_order_file(trial, self.cycle, ptype, plen, status, gen)
 
     def jump_back(self, n=1):
         """Jump back n cycles in the ensemble.
@@ -248,6 +249,14 @@ class Ensemble:
                 simcycle, cycle_acc, cycle_md, ptype[0], ptype[1], ptype[2],
                 plen, status, gen,
                 ordermin, ordermax, 0, 0, 0., 0, 0, 1.) + "\n")
+    
+    def write_to_order_file(self, path, simcycle, ptype, plen, status, gen):
+        with open(str(self.id).zfill(3) + "/order.txt", "a") as f:
+            f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}\n")
+            f.write("#     Time        Orderp\n")
+            for i, ord in enumerate(path.orders):
+                f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1] + "\n").format(i, ord[0]))
+
 
     def set_conditions(self):
         """ Determines the start, end and cross conditions of the ensemble.
@@ -584,8 +593,8 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_i*":
             # For body ensembles, we start at the left interface
-            rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
-            rand_start = np.random.randint(1, self.id-1)
+            rand_stop = np.random.randint(self.id-1, len(self.intfs["all"]))
+            rand_start = np.random.randint(self.id-1)
             start = self.intfs["all"][rand_start]*(1 - np.sign(self.intfs["all"][rand_start])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["all"][rand_stop]*(1 + np.sign(self.intfs["all"][rand_stop])*0.001)
@@ -609,7 +618,8 @@ class Ensemble:
         if self.ens_type == "i*_0star":
             phasepoints2 += [ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]-0.002][::-1]
         elif self.ens_type == "body_i*":
-            phasepoints1 = [ph for ph in phasepoints1 if self.orderparameter.calculate(ph) <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)][::-1] + phasepoints1
+            if rand_start == 0:
+                phasepoints1 = [ph for ph in phasepoints1 if self.orderparameter.calculate(ph) <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)][::-1] + phasepoints1
             phasepoints2 += [ph for ph in phasepoints2 if self.orderparameter.calculate(ph) >= self.intfs["all"][rand_stop-1]*(1 - np.sign(self.intfs["all"][rand_stop-1])*0.001)][::1]
         orders1 = [self.orderparameter.calculate(ph) for ph in phasepoints1]
         orders2 = [self.orderparameter.calculate(ph) for ph in phasepoints2]
