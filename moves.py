@@ -41,7 +41,14 @@ def shooting_move(ens, level=0):
     path = ens.paths[level]  # last accepted path
     pathlen = len(path.phasepoints)
     shoot_maxlen = min(pathlen/np.random.random(), ens.max_len)
-    sh_id = np.random.randint(1,pathlen-1)
+    if ens.ens_type == "body_i*":
+        poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"])]
+        sh_id = np.random.choice(poss_sh)
+        if not check_position((path.phasepoints[sh_id][0],
+                                ens.engine.draw_velocities()), ens.intfs["L"], ens.intfs["R"]) == "M":
+            print('lol')
+    else:
+        sh_id = np.random.randint(1,pathlen-1)
     shootpoint = (path.phasepoints[sh_id][0],
                   ens.engine.draw_velocities())
     # We will not recalculate the orderparameter for this phasepoint, as 
@@ -98,9 +105,9 @@ def shooting_move(ens, level=0):
         if ptype.count("R") > 1 or ptype.count("L") > 1:
             prop_idx = np.random.choice([0, -1])
             rev = -np.sign(prop_idx+0.5)
-            prop_point = new_path.orders[prop_idx]
+            prop_point = new_path.phasepoints[prop_idx]
             ext_status, ext_tuple = propagate(ens, prop_point, 
-                                              rev, shoot_maxlen-len(new_path.orders))
+                                              rev, shoot_maxlen-len(new_path.orders), True)
             if rev == -1:
                 ext_path = Path(ext_tuple[0] + new_path.phasepoints,
                                     bw_tuple[1] + new_path.orders,
@@ -117,7 +124,7 @@ def shooting_move(ens, level=0):
                 logger.debug("Extension performed successfully.")
                 return "ACC", ext_path
         else:
-            bext_status, bext_tuple = propagate(ens, new_path.orders[0], -1., shoot_maxlen-len(new_path.orders))
+            bext_status, bext_tuple = propagate(ens, new_path.phasepoints[0], -1., shoot_maxlen-len(new_path.orders), True)
             if bw_status != "ACC": 
                 logger.debug("Backwards extension not successful: {}".format(
                     bext_status))
@@ -125,8 +132,8 @@ def shooting_move(ens, level=0):
                                     bext_tuple[1]+new_path.orders,
                                     ens.id)
             
-            fext_status, fext_tuple = propagate(ens, new_path.orders[-1], 1.,
-                                    shoot_maxlen-len(bext_tuple[0])-len(new_path.orders))
+            fext_status, fext_tuple = propagate(ens, new_path.phasepoints[-1], 1.,
+                                    shoot_maxlen-len(bext_tuple[0])-len(new_path.orders), True)
             if fw_status != "ACC":
                 logger.debug("Forwards extension not successful: {}".format(
                     fext_status))
@@ -505,7 +512,7 @@ def check_propagation_directions(ens0, ens1):
 
     return allowed, propdir0, propdir1, p0type, p1type
 
-def propagate(ens, sh, reverse, maxlen):
+def propagate(ens, sh, reverse, maxlen, ext=False):
     """Propagate from a phasepoint sh in ensemble ens, until either one of 
     the extremal conditions (ext_cond) is met, or the maximum length of the 
     path (maxlen) is reached.
@@ -537,14 +544,12 @@ def propagate(ens, sh, reverse, maxlen):
         logger.debug("Propagating backwards")
         conds = {"cond": ens.start_conditions,
                  "rej_intf": "BWI",
-                 "rej_turn": "BTU",
                  "rej_maxlen": "BTL",
                  "type_cond": "start"}
     elif reverse == 1:
         logger.debug("Propagating forwards")
         conds = {"cond": ens.end_conditions,
                  "rej_intf": "FWI",
-                 "rej_turn": "FTU",
                  "rej_maxlen": "FTL",
                  "type_cond": "end"}
     else:
@@ -554,6 +559,7 @@ def propagate(ens, sh, reverse, maxlen):
     run_len = 0
     run_worthy = True
     ph = (sh[0], reverse*sh[1])
+    pos_star = None
     while run_worthy:
         #logger.debug("ph = %s", ph)
         ph = ens.engine.step(ph)
@@ -563,9 +569,14 @@ def propagate(ens, sh, reverse, maxlen):
         run_len += 1
         LR_pos = check_position(op, ens.intfs['L'], ens.intfs['R'])
         if LR_pos in ens.extremal_conditions:
-            if ens.ens_type == "body_i*":
-                ens.start_conditions = {"turn"}
-                ens.end_conditions = {"turn"}
+            if ens.ens_type == "body_i*" and ext:
+                pos_star = LR_pos
+                AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
+                if AB_pos != "M":
+                    run_worthy = False
+                    msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
+                    logger.debug(msg)
+                    status = 'ACC'
                 continue
             run_worthy = False
             if LR_pos in conds['cond']:
@@ -583,18 +594,18 @@ def propagate(ens, sh, reverse, maxlen):
             status = conds['rej_maxlen']
             run_worthy = False
             
-        if "turn" in ens.extremal_conditions:
+        if pos_star is not None:
             AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
             if AB_pos != "M":
                 run_worthy = False
                 msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
                 logger.debug(msg)
                 status = 'ACC'
-            elif turn_detected(ops, LR_pos):
+            elif turn_detected(ens, pos_star, ops):
                 run_worthy = False
                 msg = f"Path made a turn while moving {'forwards' if reverse == 1 else 'backwards'}."
                 logger.debug(msg)
-                status = conds['rej_turn']
+                status = 'ACC'
     
     if reverse == -1:
         trial_tuple = (phs[::-1], ops[::-1], ens.id)
