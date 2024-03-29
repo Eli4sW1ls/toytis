@@ -41,12 +41,9 @@ def shooting_move(ens, level=0):
     path = ens.paths[level]  # last accepted path
     pathlen = len(path.phasepoints)
     shoot_maxlen = min(pathlen/np.random.random(), ens.max_len)
-    if ens.ens_type == "body_i*":
+    if ens.ens_type in ["body_i*", "i*_0star"]:
         poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"])]
         sh_id = np.random.choice(poss_sh)
-        if not check_position((path.phasepoints[sh_id][0],
-                                ens.engine.draw_velocities()), ens.intfs["L"], ens.intfs["R"]) == "M":
-            print('lol')
     else:
         sh_id = np.random.randint(1,pathlen-1)
     shootpoint = (path.phasepoints[sh_id][0],
@@ -100,9 +97,9 @@ def shooting_move(ens, level=0):
         logger.debug("New path does not satisfy ensemble crossing conditions")
         return "NCR", new_path
     
-    elif ens.ens_type == "body_i*":
+    elif ens.ens_type in ["body_i*", "i*_0star"]:
         ptype = ens.get_ptype(new_path)
-        if ptype.count("R") > 1 or ptype.count("L") > 1:
+        if ptype == "RMR" or ptype == "LML":
             prop_idx = np.random.choice([0, -1])
             rev = -np.sign(prop_idx+0.5)
             prop_point = new_path.phasepoints[prop_idx]
@@ -110,12 +107,12 @@ def shooting_move(ens, level=0):
                                               rev, shoot_maxlen-len(new_path.orders), True)
             if rev == -1:
                 ext_path = Path(ext_tuple[0] + new_path.phasepoints,
-                                    bw_tuple[1] + new_path.orders,
-                                    ens.id)
+                                ext_tuple[1] + new_path.orders,
+                                ens.id)
             else:
                 ext_path = Path(new_path.phasepoints + ext_tuple[0],
-                                    new_path.orders + bw_tuple[1],
-                                    ens.id)
+                                new_path.orders + ext_tuple[1],
+                                ens.id)
             if ext_status != "ACC":
                 logger.debug("Half extension not successful: {}".format(
                     ext_status))
@@ -125,25 +122,25 @@ def shooting_move(ens, level=0):
                 return "ACC", ext_path
         else:
             bext_status, bext_tuple = propagate(ens, new_path.phasepoints[0], -1., shoot_maxlen-len(new_path.orders), True)
-            if bw_status != "ACC": 
+            if bext_status != "ACC": 
                 logger.debug("Backwards extension not successful: {}".format(
                     bext_status))
-                return bw_status, Path(bext_tuple[0]+new_path.phasepoints,
+                return bext_status, Path(bext_tuple[0]+new_path.phasepoints,
                                     bext_tuple[1]+new_path.orders,
                                     ens.id)
             
             fext_status, fext_tuple = propagate(ens, new_path.phasepoints[-1], 1.,
                                     shoot_maxlen-len(bext_tuple[0])-len(new_path.orders), True)
-            if fw_status != "ACC":
+            if fext_status != "ACC":
                 logger.debug("Forwards extension not successful: {}".format(
                     fext_status))
                 return fext_status, Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
-                                    bext_tuple[1] + new_path.orders + fw_tuple[1],
+                                    bext_tuple[1] + new_path.orders + fext_tuple[1],
                                     ens.id)
             else:
                 logger.debug("Extension performed successfully.")
                 return "ACC", Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
-                                    bext_tuple[1] + new_path.orders + fw_tuple[1],
+                                    bext_tuple[1] + new_path.orders + fext_tuple[1],
                                     ens.id)
     else:
         logger.debug("New path satisfies ensemble crossing conditions.")
@@ -569,33 +566,32 @@ def propagate(ens, sh, reverse, maxlen, ext=False):
         run_len += 1
         LR_pos = check_position(op, ens.intfs['L'], ens.intfs['R'])
         if LR_pos in ens.extremal_conditions:
-            if ens.ens_type == "body_i*" and ext:
-                pos_star = LR_pos
+            if ext:
+                pos_star = check_position(sh, ens.intfs['L'], ens.intfs['R'])
                 AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
                 if AB_pos != "M":
                     run_worthy = False
                     msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
                     logger.debug(msg)
                     status = 'ACC'
-                continue
-            run_worthy = False
-            if LR_pos in conds['cond']:
-                msg = f"Path crossed {LR_pos}, which is part of the "
-                msg += f"{conds['type_cond']} conditions {conds['cond']}."
-                logger.debug(msg)
-                status = "ACC"
             else:
-                msg = f"Path crossed {LR_pos}, which is not part of the "
-                msg += f"{conds['type_cond']} conditions {conds['cond']}."
-                logger.debug(msg)
-                status = conds['rej_intf']
+                run_worthy = False
+                if LR_pos in conds['cond']:
+                    msg = f"Path crossed {LR_pos}, which is part of the "
+                    msg += f"{conds['type_cond']} conditions {conds['cond']}."
+                    logger.debug(msg)
+                    status = "ACC"
+                else:
+                    msg = f"Path crossed {LR_pos}, which is not part of the "
+                    msg += f"{conds['type_cond']} conditions {conds['cond']}."
+                    logger.debug(msg)
+                    status = conds['rej_intf']
         elif run_len >= maxlen:
             logger.debug(f"Path too long ({run_len} >= {maxlen}).")
             status = conds['rej_maxlen']
             run_worthy = False
             
         if pos_star is not None:
-            AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
             if AB_pos != "M":
                 run_worthy = False
                 msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."

@@ -57,7 +57,7 @@ class Potential:
         f_bump = -1. * deriv_bump * modulation - bump * deriv_modulation
         f = f_doublewell + f_bump
 
-        return pot, f
+        return 0, 0
     
     def plot_potential(self, ax):
         """Plots the potential.
