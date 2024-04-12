@@ -291,14 +291,14 @@ class Simulation:
             logger.info("-" * 80)
             if np.random.rand() < p_shoot:
                 self.do_shooting_moves()
-                if self.cycle % 25 == 0:
-                    # i = np.random.randint(len(self.intfs))
-                    for i in range(len(self.intfs)):
-                        if self.ensembles[i].ens_type != "state_A":
-                            plot_paths(self.ensembles[i].paths[-7:], self.ensembles[i].intfs["all"])
-                            #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-                    print(self.cycle)
-                    plt.close('all')
+                # if self.cycle % 25 == 0:
+                #     # i = np.random.randint(len(self.intfs))
+                #     for i in range(len(self.intfs)):
+                #         if self.ensembles[i].ens_type != "state_A":
+                #             plot_paths(self.ensembles[i].paths[-7:], self.ensembles[i].intfs["all"])
+                #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                #     print(self.cycle)
+                #     plt.close('all')
             else:
                 self.do_swap_moves()
 

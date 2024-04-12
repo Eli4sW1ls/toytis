@@ -150,9 +150,17 @@ class Ensemble:
 
         """
         # path data to obtain:
+        if type(trial) is tuple:
+            ptype = trial[1]
+            trial = trial[0]
+        else:
+            ptype = self.get_ptype(trial)
         ordermin = min([op[0] for op in trial.orders])
         ordermax = max([op[0] for op in trial.orders])
-        ptype = self.get_ptype(trial)
+        if np.argmin([op[0] for op in trial.orders]) < np.argmax([op[0] for op in trial.orders]):
+            dir = 1
+        else:
+            dir = -1
         plen = len(trial.phasepoints)
         #self.paths.append(trial)
         self.cycle += 1
@@ -179,9 +187,9 @@ class Ensemble:
 
         # Now we write the data to the path ensemble file
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
-                              plen, status, gen, ordermin, ordermax)
+                              plen, status, gen, ordermin, ordermax, dir)
         # and write to the order.txt file
-        self.write_to_order_file(trial, self.cycle, ptype, plen, status, gen)
+        self.write_to_order_file(trial, self.cycle, ptype, plen, status, gen, dir)
 
     def jump_back(self, n=1):
         """Jump back n cycles in the ensemble.
@@ -236,7 +244,7 @@ class Ensemble:
     #             self.pe2_len += 1
 
     def write_to_pe_file(self, simcycle, cycle_acc, cycle_md, ptype, plen,
-                         status, gen, ordermin, ordermax):
+                         status, gen, ordermin, ordermax, dir):
         """Format: simcycle, cycle_acc, cycle_md, ptype, plen, status,
         gen, ordermin, ordermax
         chars: 10, 10, 6, 7, 3, 2, 10decimals, 10decimals, 10
@@ -248,11 +256,11 @@ class Ensemble:
             f.write(PATH_FMT.format(
                 simcycle, cycle_acc, cycle_md, ptype[0], ptype[1], ptype[2],
                 plen, status, gen,
-                ordermin, ordermax, 0, 0, 0., 0, 0, 1.) + "\n")
+                ordermin, ordermax, dir, 0, 0., 0, 0, 1.) + "\n")
     
-    def write_to_order_file(self, path, simcycle, ptype, plen, status, gen):
+    def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir):
         with open(str(self.id).zfill(3) + "/order.txt", "a") as f:
-            f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}\n")
+            f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}, direction: {'fw' if dir==1 else 'bw'}\n")
             f.write("#     Time        Orderp\n")
             for i, ord in enumerate(path.orders):
                 f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1] + "\n").format(i, ord[0]))
@@ -278,6 +286,8 @@ class Ensemble:
             simulation, where a lambda_{N+1} is present.
 
         """
+
+        self.illegal_pathtypes = {}
 
         if self.ens_type == "body_TIS":
             self.start_conditions = {"L"}
@@ -635,7 +645,7 @@ class Ensemble:
         # else:
         self.paths.append(path)
         self.last_path = path
-        self.update_data("ACC", path, "ld", 0)
+        self.update_data("ACC", path if self.ens_type not in ["i*_0star", "body_i*"] else (path, "LMR"), "ld", 0)
 
     def plot_min_max_distributions(self, flag="ACC"):
         """Reads the pathensemble.txt file and plots the distribution of the

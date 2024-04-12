@@ -85,11 +85,11 @@ def shooting_move(ens, level=0):
                     ens.id)
     # if the ensemble is a primed PPTIS ensemble, we have to check whether an 
     # illegal pathtype has occurred. If so, we reject the move with flag 'ILL'. 
-    if ens.ens_type in ['PPTIS_0plusmin_primed', 'PPTIS_Nplusmin_primed']:
-        ptype = ens.get_ptype(new_path)
-        if ptype in ens.illegal_pathtypes:
-            logger.info("Illegal pathtype {} for primed ensemble".format(ptype))
-            return "ILL", new_path
+    
+    ptype = ens.get_ptype(new_path)
+    if ptype in ens.illegal_pathtypes:
+        logger.info("Illegal pathtype {} for primed ensemble".format(ptype))
+        return "ILL", new_path
     # We have to check whether the new path satisfies the crossing conditions.
     # TODO: all the above can be done in 'check_path' method of Ensemble, which 
     # should be rebuilt for this purpose. 
@@ -116,32 +116,32 @@ def shooting_move(ens, level=0):
             if ext_status != "ACC":
                 logger.debug("Half extension not successful: {}".format(
                     ext_status))
-                return ext_status, ext_path
+                return ext_status, (ext_path, ptype)
             else:
                 logger.debug("Extension performed successfully.")
-                return "ACC", ext_path
+                return "ACC", (ext_path, ptype)
         else:
             bext_status, bext_tuple = propagate(ens, new_path.phasepoints[0], -1., shoot_maxlen-len(new_path.orders), True)
             if bext_status != "ACC": 
                 logger.debug("Backwards extension not successful: {}".format(
                     bext_status))
-                return bext_status, Path(bext_tuple[0]+new_path.phasepoints,
+                return bext_status, (Path(bext_tuple[0]+new_path.phasepoints,
                                     bext_tuple[1]+new_path.orders,
-                                    ens.id)
+                                    ens.id), ptype)
             
             fext_status, fext_tuple = propagate(ens, new_path.phasepoints[-1], 1.,
                                     shoot_maxlen-len(bext_tuple[0])-len(new_path.orders), True)
             if fext_status != "ACC":
                 logger.debug("Forwards extension not successful: {}".format(
                     fext_status))
-                return fext_status, Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                return fext_status, (Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
                                     bext_tuple[1] + new_path.orders + fext_tuple[1],
-                                    ens.id)
+                                    ens.id), ptype)
             else:
                 logger.debug("Extension performed successfully.")
-                return "ACC", Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                return "ACC", (Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
                                     bext_tuple[1] + new_path.orders + fext_tuple[1],
-                                    ens.id)
+                                    ens.id), ptype)
     else:
         logger.debug("New path satisfies ensemble crossing conditions.")
         return "ACC", new_path
