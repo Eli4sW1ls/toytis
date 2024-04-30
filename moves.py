@@ -40,14 +40,16 @@ def shooting_move(ens, level=0):
     """
     path = ens.paths[level]  # last accepted path
     pathlen = len(path.phasepoints)
-    shoot_maxlen = min(pathlen/np.random.random(), ens.max_len)
     if ens.ens_type in ["body_i*", "i*_0star"]:
         poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"])]
+        n_ph = len(poss_sh)
         sh_id = np.random.choice(poss_sh)
     else:
+        n_ph = pathlen
         sh_id = np.random.randint(1,pathlen-1)
     shootpoint = (path.phasepoints[sh_id][0],
                   ens.engine.draw_velocities())
+    shoot_maxlen = min(n_ph/np.random.random(), ens.max_len)
     # We will not recalculate the orderparameter for this phasepoint, as 
     # external engines may save phasepoints at a lower precision. This can 
     # lead to the recalculated phasepoint shifting position w.r.t. an interface,
@@ -65,9 +67,10 @@ def shooting_move(ens, level=0):
     if bw_status != "ACC": 
         logger.debug("Backwards propagation not successful: {}".format(
             bw_status))
+        ptype = ens.get_ptype(Path(bw_tuple[0]+[shootpoint], bw_tuple[1]+[shootpoint_op], ens.id))
         return bw_status, Path(bw_tuple[0]+[shootpoint],
                                bw_tuple[1]+[shootpoint_op],
-                               ens.id)
+                               ens.id, [ptype, 0, bw_status, shootpoint_op])
     # if successful, we continue propagating forwards
     fw_status, fw_tuple = propagate(ens, shootpoint, 1.,
                                     shoot_maxlen-len(bw_tuple[0]))
@@ -75,26 +78,34 @@ def shooting_move(ens, level=0):
     if fw_status != "ACC":
         logger.debug("Forwards propagation not successful: {}".format(
             fw_status))
+        ptype = ens.get_ptype(Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
+                               bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                               ens.id))
         return fw_status, Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
                                bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
-                               ens.id)
+                               ens.id, [ptype, 0, fw_status, shootpoint_op])
     # If succesful, the new path should satisfy the crossing conditions.
     # logger.debug("Time origin of new path: {}".format(len(bw_tuple[0])-sh_id))
+    ptype = ens.get_ptype(Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
+                    bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                    ens.id))
     new_path = Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
                     bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
-                    ens.id)
+                    ens.id, [ptype, 0, shootpoint_op])
     # if the ensemble is a primed PPTIS ensemble, we have to check whether an 
     # illegal pathtype has occurred. If so, we reject the move with flag 'ILL'. 
     
     ptype = ens.get_ptype(new_path)
     if ptype in ens.illegal_pathtypes:
         logger.info("Illegal pathtype {} for primed ensemble".format(ptype))
+        new_path.ptype = [ptype, 0, "ILL", shootpoint_op]
         return "ILL", new_path
     # We have to check whether the new path satisfies the crossing conditions.
     # TODO: all the above can be done in 'check_path' method of Ensemble, which 
     # should be rebuilt for this purpose. 
     if not ens.check_cross(new_path):
         logger.debug("New path does not satisfy ensemble crossing conditions")
+        new_path.ptype = [ptype, 0, "NCR", shootpoint_op]
         return "NCR", new_path
     
     elif ens.ens_type in ["body_i*", "i*_0star"]:
@@ -108,17 +119,19 @@ def shooting_move(ens, level=0):
             if rev == -1:
                 ext_path = Path(ext_tuple[0] + new_path.phasepoints,
                                 ext_tuple[1] + new_path.orders,
-                                ens.id)
+                                ens.id, [ptype, 1 if ptype=="LML" else -1, shootpoint_op])
             else:
                 ext_path = Path(new_path.phasepoints + ext_tuple[0],
                                 new_path.orders + ext_tuple[1],
-                                ens.id)
+                                ens.id, [ptype, -1 if ptype=="LML" else 1, shootpoint_op])
             if ext_status != "ACC":
                 logger.debug("Half extension not successful: {}".format(
                     ext_status))
+                ext_path.ptype = [ptype, 0, ext_status, shootpoint_op]
                 return ext_status, (ext_path, ptype)
             else:
                 logger.debug("Extension performed successfully.")
+                ext_path.ptype = [ptype, 0, "ACC", shootpoint_op]
                 return "ACC", (ext_path, ptype)
         else:
             bext_status, bext_tuple = propagate(ens, new_path.phasepoints[0], -1., shoot_maxlen-len(new_path.orders), True)
@@ -127,7 +140,7 @@ def shooting_move(ens, level=0):
                     bext_status))
                 return bext_status, (Path(bext_tuple[0]+new_path.phasepoints,
                                     bext_tuple[1]+new_path.orders,
-                                    ens.id), ptype)
+                                    ens.id, [ptype, 0, bext_status, shootpoint_op]), ptype)
             
             fext_status, fext_tuple = propagate(ens, new_path.phasepoints[-1], 1.,
                                     shoot_maxlen-len(bext_tuple[0])-len(new_path.orders), True)
@@ -136,14 +149,15 @@ def shooting_move(ens, level=0):
                     fext_status))
                 return fext_status, (Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
                                     bext_tuple[1] + new_path.orders + fext_tuple[1],
-                                    ens.id), ptype)
+                                    ens.id, [ptype, 0, fext_status, shootpoint_op]), ptype)
             else:
                 logger.debug("Extension performed successfully.")
                 return "ACC", (Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
                                     bext_tuple[1] + new_path.orders + fext_tuple[1],
-                                    ens.id), ptype)
+                                    ens.id, [ptype, 0, "ACC", shootpoint_op]), ptype)
     else:
         logger.debug("New path satisfies ensemble crossing conditions.")
+        new_path.ptype = [ptype, 0, "ACC", shootpoint_op]
         return "ACC", new_path
 
 def swap(ensembles, idx):

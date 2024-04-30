@@ -49,16 +49,25 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
                 [ph[0] for ph in path.phasepoints], "-x", **kwargs)
         # plot the first and last point again to highlight start/end phasepoints
         # it must have the same color as the line for the path
-        ax.plot(start_idx, path.phasepoints[0][0], "^",
-                color=ax.lines[-1].get_color(), ms = 7)
-        ax.plot(start_idx + len(path.phasepoints) - 1,
-                path.phasepoints[-1][0], "v",
-                color=ax.lines[-1].get_color(), ms = 7)
+        if path.ptype is not None:
+            ax.plot(start_idx, path.phasepoints[0][0], "^",
+                    color=ax.lines[-1].get_color(), ms = 7, label=str((path.ptype[:2], path.ens_id)))
+            ax.plot(start_idx + len(path.phasepoints) - 1,
+                    path.phasepoints[-1][0], "v",
+                    color=ax.lines[-1].get_color(), ms = 7)
+            ax.plot(path.orders.index([path.ptype[-1]]), path.ptype[-1], "o", **kwargs)
+        else:
+            ax.plot(start_idx, path.phasepoints[0][0], "^",
+                    color=ax.lines[-1].get_color(), ms = 7)
+            ax.plot(start_idx + len(path.phasepoints) - 1,
+                    path.phasepoints[-1][0], "v",
+                    color=ax.lines[-1].get_color(), ms = 7)
+    ax.legend()
     if intfs is not None:
         for intf in intfs:
             ax.axhline(intf, color="k", ls="--", lw=.5)
     if ax is None:
-        fig.show()
+        plt.show(block=True)
     
 
 def overlay_paths(path, paths):

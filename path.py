@@ -17,7 +17,7 @@ class Path:
     """
     path_counter = 0
 
-    def __init__(self, phasepoints=None, orders = None, ens_id=None):
+    def __init__(self, phasepoints=None, orders = None, ens_id=None, ptype=None):
         """Initialize the Path object.
 
         Parameters
@@ -34,6 +34,7 @@ class Path:
         self.ens_id = ens_id
         self.path_id = Path.path_counter
         Path.path_counter += 1
+        self.ptype = ptype
 
     def copy_path(self):
         """Returns a copy of the path. Changes made to this new path will not be

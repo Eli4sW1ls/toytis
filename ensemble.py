@@ -161,6 +161,8 @@ class Ensemble:
             dir = 1
         else:
             dir = -1
+        if trial.ptype is not None:
+            trial.ptype[1] = dir
         plen = len(trial.phasepoints)
         #self.paths.append(trial)
         self.cycle += 1
@@ -175,7 +177,7 @@ class Ensemble:
                     self.paths.pop()
         else:  # not ACC
             if update_paths:
-                self.paths.insert(0, self.paths[0])  # TODO: this was copy_path
+                self.paths.insert(0, trial)  # TODO: this was copy_path
                 if len(self.paths) > self.max_paths:
                     self.paths.pop()
         if self.simtype == "retis":
@@ -189,7 +191,7 @@ class Ensemble:
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
                               plen, status, gen, ordermin, ordermax, dir)
         # and write to the order.txt file
-        self.write_to_order_file(trial, self.cycle, ptype, plen, status, gen, dir)
+        self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir)
 
     def jump_back(self, n=1):
         """Jump back n cycles in the ensemble.
