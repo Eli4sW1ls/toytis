@@ -46,7 +46,7 @@ def shooting_move(ens, level=0):
         sh_id = np.random.choice(poss_sh)
     else:
         n_ph = pathlen
-        sh_id = np.random.randint(1,pathlen-1)
+        sh_id = np.random.randint(1,n_ph-1)
     shootpoint = (path.phasepoints[sh_id][0],
                   ens.engine.draw_velocities())
     shoot_maxlen = min(n_ph/np.random.random(), ens.max_len)
@@ -115,7 +115,7 @@ def shooting_move(ens, level=0):
             rev = -np.sign(prop_idx+0.5)
             prop_point = new_path.phasepoints[prop_idx]
             ext_status, ext_tuple = propagate(ens, prop_point, 
-                                              rev, shoot_maxlen-len(new_path.orders), True)
+                                              rev, shoot_maxlen-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
             if rev == -1:
                 ext_path = Path(ext_tuple[0] + new_path.phasepoints,
                                 ext_tuple[1] + new_path.orders,
@@ -134,7 +134,7 @@ def shooting_move(ens, level=0):
                 ext_path.ptype = [ptype, 0, "ACC", shootpoint_op]
                 return "ACC", (ext_path, ptype)
         else:
-            bext_status, bext_tuple = propagate(ens, new_path.phasepoints[0], -1., shoot_maxlen-len(new_path.orders), True)
+            bext_status, bext_tuple = propagate(ens, new_path.phasepoints[0], -1., shoot_maxlen-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
             if bext_status != "ACC": 
                 logger.debug("Backwards extension not successful: {}".format(
                     bext_status))
@@ -143,7 +143,7 @@ def shooting_move(ens, level=0):
                                     ens.id, [ptype, 0, bext_status, shootpoint_op]), ptype)
             
             fext_status, fext_tuple = propagate(ens, new_path.phasepoints[-1], 1.,
-                                    shoot_maxlen-len(bext_tuple[0])-len(new_path.orders), True)
+                                    shoot_maxlen-len(bext_tuple[0])-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
             if fext_status != "ACC":
                 logger.debug("Forwards extension not successful: {}".format(
                     fext_status))
@@ -577,8 +577,11 @@ def propagate(ens, sh, reverse, maxlen, ext=False):
         op = ens.orderparameter.calculate(ph)
         phs.append((ph[0], reverse*ph[1]))
         ops.append(op)
-        run_len += 1
         LR_pos = check_position(op, ens.intfs['L'], ens.intfs['R'])
+        if pos_star is not None and LR_pos in ens.extremal_conditions:
+            pass
+        else:
+            run_len += 1
         if LR_pos in ens.extremal_conditions:
             if ext:
                 pos_star = check_position(sh, ens.intfs['L'], ens.intfs['R'])
@@ -666,20 +669,28 @@ def turn_detected(ens, pos, ops):
     
     NOTE: also return extreme interface?
     """
-    ops_ = np.asarray(ops)
+    # ops_ = np.asarray(ops)
     intfs = ens.intfs['all']
     lr = -1 if pos == "L" else (1 if pos == "R" else None)
-    extr_op = lr*max(lr*ops_)
-    elig_intfs = np.asarray([int for int in intfs if lr*int <= lr*extr_op])
-    extr_idx = intfs.index(elig_intfs[np.abs(elig_intfs - extr_op).argmin()])
+    # extr_op = lr*max(lr*ops_)
+    extr_op = max(ops)[0] if lr==1 else min(ops)[0]
+    elig_intfs = np.array([int for int in intfs if lr*int <= lr*extr_op])
+    # extr_idx = intfs.index(elig_intfs[np.abs(elig_intfs - extr_op).argmin()])
+    cond_intf = elig_intfs[np.abs(elig_intfs - extr_op).argmin()-lr]
 
-    if len(ops) == extr_idx+1 or extr_op is None:
+    if ops[-1] == extr_op or extr_op is None:
         return False
 
-    extr_intf = intfs[extr_idx]
+    # extr_intf = intfs[extr_idx]
+    ops_elig = np.array(ops[ops.index([extr_op]):])
 
-    return len(lr*ops_[ops.index(extr_op):][lr*ops_[ops.index(extr_op):] < lr*np.asarray(intfs)[extr_idx-lr]]) > 0
+    # return len(lr*ops_[ops.index(extr_op):][lr*ops_[ops.index(extr_op):] < lr*np.asarray(intfs)[extr_idx-lr]]) > 0
+    # return len([op for op in ops_elig if lr*op < lr*extr_intf]) > 0
+    return np.any(lr*ops_elig < lr*cond_intf)
 
+def num_shootpoints(orders, l, r):
+    ops = np.array(orders)
+    return np.count_nonzero(np.logical_and(ops >= l, ops <= r))
 
 ###############################################################################
 # OLD FUNCTIONS

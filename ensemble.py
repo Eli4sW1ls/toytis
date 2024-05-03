@@ -177,7 +177,7 @@ class Ensemble:
                     self.paths.pop()
         else:  # not ACC
             if update_paths:
-                self.paths.insert(0, trial)  # TODO: this was copy_path
+                self.paths.insert(0, self.paths[0])  # TODO: this was copy_path
                 if len(self.paths) > self.max_paths:
                     self.paths.pop()
         if self.simtype == "retis":

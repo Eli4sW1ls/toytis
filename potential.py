@@ -52,12 +52,12 @@ class Potential:
         f_doublewell = -self.a4*x**3 + self.b2*(x - self.c)
         deriv_bump = self.d * np.cos(self.pi2 * x / self.p) * self.pi2divp
         deriv_modulation = \
-            - 5. * np.sign(x) * np.exp(5.*(np.abs(x) + self.p3)) /\
-            (np.exp(5.*np.abs(x)) + self.exp_p15)**2
+           - 5. * np.sign(x) * np.exp(5.*(np.abs(x) + self.p3)) /\
+           (np.exp(5.*np.abs(x)) + self.exp_p15)**2
         f_bump = -1. * deriv_bump * modulation - bump * deriv_modulation
         f = f_doublewell + f_bump
 
-        return 0, 0
+        return pot, f
     
     def plot_potential(self, ax):
         """Plots the potential.
