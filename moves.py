@@ -674,9 +674,11 @@ def turn_detected(ens, pos, ops):
     lr = -1 if pos == "L" else (1 if pos == "R" else None)
     # extr_op = lr*max(lr*ops_)
     extr_op = max(ops)[0] if lr==1 else min(ops)[0]
-    elig_intfs = np.array([int for int in intfs if lr*int <= lr*extr_op])
+    elig_intfs = [int for int in intfs if lr*int <= lr*extr_op]
     # extr_idx = intfs.index(elig_intfs[np.abs(elig_intfs - extr_op).argmin()])
-    cond_intf = elig_intfs[np.abs(elig_intfs - extr_op).argmin()-lr]
+    # cond_intf = elig_intfs[np.abs(elig_intfs - extr_op).argmin()-lr]
+    cond_intf = elig_intfs[1 if lr==-1 else -2]
+    # assert elig_intfs[np.abs(elig_intfs - extr_op).argmin()-lr] == cond_intf
 
     if ops[-1] == extr_op or extr_op is None:
         return False

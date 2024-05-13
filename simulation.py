@@ -187,6 +187,8 @@ class Simulation:
         # ens_set["save_pe2"] = self.save_pe2
         # ens_set["pe2_N"] = self.settings["pe2_N"]
         ens_set["max_paths"] = self.settings["max_paths"]
+        ens_set["mass"] = self.settings["mass"]
+        ens_set["dim"] = self.settings["dim"]
 
         if self.permeability:
             assert self.zero_left is not None, "No zero_left for permeability"
