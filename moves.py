@@ -42,6 +42,8 @@ def shooting_move(ens, level=0):
     pathlen = len(path.phasepoints)
     if ens.ens_type in ["body_i*", "i*_0star"]:
         poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"])]
+        if ens.ens_type == "i*_0star":
+            poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["all"][1])]
         n_ph = len(poss_sh)
         sh_id = np.random.choice(poss_sh)
     else:

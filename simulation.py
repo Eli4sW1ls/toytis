@@ -224,7 +224,7 @@ class Simulation:
         elif self.simtype == "i*":
             ens_set["intfs"] = {"L": self.intfs[0],
                 "M": None,  # Not even defined for 0+ or 0+-'
-                "R": self.intfs[1]}
+                "R": self.intfs[2]}
             ens_set["ens_type"] = "i*_0star"
             ens_set["name"] = "[0*]"
             intf_entry = {"all": self.intfs}
@@ -300,17 +300,17 @@ class Simulation:
             logger.info("-" * 80)
             if np.random.rand() < p_shoot:
                 self.do_shooting_moves()
-            #     if self.cycle % 5 == 0:
-            #         ps = []
-            #         for i in range(len(self.intfs)):
-            #             if self.ensembles[i].ens_type != "state_A":
-            #                 ps += [self.ensembles[i].last_path]
-            #                 # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
-            #                 #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
-            #         plot_paths(ps, self.ensembles[i].intfs["all"])
-            #                 #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-            #         print(self.cycle)
-            #         plt.close('all')
+                # if self.cycle % 5 == 0:
+                #     ps = []
+                #     for i in range(len(self.intfs)):
+                #         if self.ensembles[i].ens_type != "state_A":
+                #             ps += [self.ensembles[i].last_path]
+                #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                #     plot_paths(ps, self.ensembles[i].intfs["all"])
+                #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                #     print(self.cycle)
+                #     plt.close('all')
             else:
                 self.do_swap_moves()
 

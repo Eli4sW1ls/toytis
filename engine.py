@@ -2,6 +2,7 @@ import numpy as np
 import logging
 from potential import Potential
 from cos_bump_series import CosBumpSeriesWalls
+from flat_walls import FlatWall1D
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -34,7 +35,8 @@ class LangevinEngine:
         self.T = self.settings["temperature"]
         self.gamma = self.settings["friction"]
         # self.potential = Potential()
-        self.potential = CosBumpSeriesWalls()
+        # self.potential = CosBumpSeriesWalls()
+        self.potential = FlatWall1D()
         self.phasepoint = None
         self.kB = 1.0
         self.kT = self.kB * self.T
@@ -46,7 +48,7 @@ class LangevinEngine:
         # self.gammadt = self.gamma * self.dt
         # self.dtdivmass = self.dt / self.mass
         # self.one_minus_gammadt = 1.0 - self.gammadt
-        # self.equipartition_sigma = np.sqrt(self.kT / self.mass)
+        self.equipartition_sigma = np.sqrt(self.kT / self.mass)
         self.mdsteps = 0
 
         if self.high_friction:
