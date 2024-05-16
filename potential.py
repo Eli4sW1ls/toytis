@@ -26,6 +26,26 @@ class Potential:
         self.pi2 = 2.*np.pi
         self.pi2divp = 2.*np.pi/self.p
 
+    def potential(self, ph):
+        # x = ph[0]
+        # doublewell = self.a*x**4 - self.b*(x - self.c)**2
+        # bump = self.d * np.sin(2. * np.pi * x / self.p)
+        # modulation = (1.-1. / (1 + np.exp(-5. * (np.abs(x) - 3.*self.p))))
+        # pot = doublewell + bump * modulation
+
+        return 0
+    
+    def force(self, ph):
+        # f_doublewell = -self.a4*x**3 + self.b2*(x - self.c)
+        # deriv_bump = self.d * np.cos(self.pi2 * x / self.p) * self.pi2divp
+        # deriv_modulation = \
+        #    - 5. * np.sign(x) * np.exp(5.*(np.abs(x) + self.p3)) /\
+        #    (np.exp(5.*np.abs(x)) + self.exp_p15)**2
+        # f_bump = -1. * deriv_bump * modulation - bump * deriv_modulation
+        # f = f_doublewell + f_bump
+
+        return 0
+
     def potential_and_force(self, ph):
         """Returns the potential and force at phasepoint ph.
 

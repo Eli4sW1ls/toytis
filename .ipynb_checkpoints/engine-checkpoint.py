@@ -40,13 +40,13 @@ class LangevinEngine:
         self.kT = self.kB * self.T
         self.beta = 1.0 / self.kT
         self.mass = self.settings["mass"]
-        self.sigma = None
+        self.sigma = np.sqrt(2.0 * self.dt / (self.beta * self.mass * self.gamma))
         self.bddt = None
         self.dim = self.settings["dim"]
-        # self.gammadt = self.gamma * self.dt
-        # self.dtdivmass = self.dt / self.mass
-        # self.one_minus_gammadt = 1.0 - self.gammadt
-        # self.equipartition_sigma = np.sqrt(self.kT / self.mass)
+        self.gammadt = self.gamma * self.dt
+        self.dtdivmass = self.dt / self.mass
+        self.one_minus_gammadt = 1.0 - self.gammadt
+        self.equipartition_sigma = np.sqrt(self.kT / self.mass)
         self.mdsteps = 0
 
         if self.high_friction:
@@ -70,12 +70,17 @@ class LangevinEngine:
             self.b1 = (c_1 - c_2) * self.dt / self.mass
             self.b2 = c_2 * self.dt / self.mass
 
+            # self.cho = []
+
             sig_ri2 = ((self.dt / (self.beta * self.gamma * self.mass)) *
                         (2. - (3. - 4.*exp_gdt + exp_gdt**2) / gammadt))
             sig_vi2 = (1.0 - exp_gdt**2) / (self.beta * self.mass)
             cov_rvi = (1./(self.mass * self.beta * self.gamma)) * (1.0 - exp_gdt)**2
+            # cov_matrix = np.array([[sig_ri2, cov_rvi],
+            #                         [cov_rvi, sig_vi2]])
             self.cov = np.array([[sig_ri2, cov_rvi],
                                     [cov_rvi, sig_vi2]])
+            # self.cho.append(np.linalg.cholesky(cov_matrix))
             self.mean = np.zeros(2)
 
     def step(self, ph=None):
@@ -93,45 +98,46 @@ class LangevinEngine:
         """
         x, v = ph
         
-        force = self.potential.force((x, v))
+        # force = self.potential.force((x, v))
 
-        # Adapted from PyRETIS implementation, EW, May 2024
-        if self.high_friction:
-            rands = np.random.normal(loc = 0.0, scale=self.sigma, size=self.dim)
-            x_new = x + self.bddt * force + rands
-            v_new = rands
-            return (x_new, v_new)
-        else:
-            randxv = np.random.multivariate_normal(self.mean, self.cov)
-            x_rand = randxv[0]
-            v_rand = randxv[1]
-            x_new = x + self.a1 * v + self.a2 * force + x_rand
+        # # Adapted from PyRETIS implementation, EW, May 2024
+        # if self.high_friction:
+        #     rands = np.random.normal(loc = 0.0, scale=self.sigma, size=self.dim)
+        #     x_new = x + self.bddt * force + rands
+        #     v_new = rand 
+        #     sim_retiscosb/retis.rst
+        #     return (x_new, v_new)
+        # else:
+        #     randxv = np.random.multivariate_normal(self.mean, self.cov)
+        #     x_rand = randxv[0]
+        #     v_rand = randxv[1]
+        #     x_new = x + self.a1 * v + self.a2 * force + x_rand
             
-            v2 = self.c0 * v + self.b1 * force + v_rand
+        #     v2 = self.c0 * v + self.b1 * force + v_rand
 
-            force = self.potential.force((x_new, v))
+        #     force = self.potential.force((x_new, v))
 
-            v_new = v2 + self.b2 * force
+        #     v_new = v2 + self.b2 * force
 
-            self.mdsteps += 1
+        #     self.mdsteps += 1
 
-            return (x_new, v_new)
+        #     return (x_new, v_new)
 
-        # # Calculate the new position using the current velocity.
-        # x_new = x + v * self.dt
-        # force = self.potential.force((x_new, v))
+        # Calculate the new position using the current velocity.
+        x_new = x + v * self.dt
+        force = self.potential.force((x_new, v))
 
-        # # calculate the stochastic force
-        # xi = np.random.normal(0, 1, self.dim)[0]
+        # calculate the stochastic force
+        xi = np.random.normal(0, 1, self.dim)[0]
 
-        # # update the velocity and position using the Langevin equation
-        # v_new = v * self.one_minus_gammadt\
-        #         + (force * self.dtdivmass)\
-        #         + self.sigma * xi
+        # update the velocity and position using the Langevin equation
+        v_new = v * self.one_minus_gammadt\
+                + (force * self.dtdivmass)\
+                + self.sigma * xi
         
-        # self.mdsteps += 1
+        self.mdsteps += 1
 
-        # return (x_new, v_new)
+        return (x_new, v_new)
 
     def draw_velocities(self):
         """
@@ -144,6 +150,8 @@ class LangevinEngine:
         """
         # Maxwell-Boltzmann distribution for each component of the velocity
         return (np.random.normal(0, self.equipartition_sigma, self.dim))[0]
+            #     *\
+            # np.sqrt(self.mass/(2*np.pi*self.kT)))[0]
 
     def set_phasepoint(self, ph):
         """ Sets the phasepoint of the engine.

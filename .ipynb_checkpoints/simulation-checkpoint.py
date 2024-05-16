@@ -209,22 +209,16 @@ class Simulation:
 
         # Then we make the zero plus ensemble
         ens_set["id"] = 1
+        ens_set["intfs"] = {"L": self.intfs[0],
+                            "M": None,  # Not even defined for 0+ or 0+-'
+                            "R": self.intfs[1]}
         if self.simtype == "repptis":
-            ens_set["intfs"] = {"L": self.intfs[0],
-                "M": None,  # Not even defined for 0+ or 0+-'
-                "R": self.intfs[1]}
             ens_set["ens_type"] = "PPTIS_0plusmin_primed"
             ens_set["name"] = "[0+-']"
         elif self.simtype == "retis":
-            ens_set["intfs"] = {"L": self.intfs[0],
-                "M": None,  # Not even defined for 0+ or 0+-'
-                "R": self.intfs[-1]}
             ens_set["ens_type"] = "RETIS_0plus"
             ens_set["name"] = "[0+]"
         elif self.simtype == "i*":
-            ens_set["intfs"] = {"L": self.intfs[0],
-                "M": None,  # Not even defined for 0+ or 0+-'
-                "R": self.intfs[1]}
             ens_set["ens_type"] = "i*_0star"
             ens_set["name"] = "[0*]"
             intf_entry = {"all": self.intfs}
