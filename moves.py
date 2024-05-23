@@ -41,9 +41,11 @@ def shooting_move(ens, level=0):
     path = ens.paths[level]  # last accepted path
     pathlen = len(path.phasepoints)
     if ens.ens_type in ["body_i*", "i*_0star"]:
-        poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"])]
+        poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"] and i >= path.staridx[0] and i <= path.staridx[1])]
         if ens.ens_type == "i*_0star":
-            poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["all"][1])]
+            poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["all"][0] and path.orders[i][0] <= ens.intfs["all"][1] and i >= path.staridx[0] and i <= path.staridx[1])]
+        else:
+            poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"] and i >= path.staridx[0] and i <= path.staridx[1])]
         n_ph = len(poss_sh)
         sh_id = np.random.choice(poss_sh)
     else:
@@ -122,16 +124,19 @@ def shooting_move(ens, level=0):
                 ext_path = Path(ext_tuple[0] + new_path.phasepoints,
                                 ext_tuple[1] + new_path.orders,
                                 ens.id, [ptype, 1 if ptype=="LML" else -1, shootpoint_op])
+                li = len(ext_tuple[1])+1; ri = len(ext_path.orders)-2
             else:
                 ext_path = Path(new_path.phasepoints + ext_tuple[0],
                                 new_path.orders + ext_tuple[1],
                                 ens.id, [ptype, -1 if ptype=="LML" else 1, shootpoint_op])
+                li = 1; ri = len(new_path.orders)-2
             if ext_status != "ACC":
                 logger.debug("Half extension not successful: {}".format(
                     ext_status))
                 ext_path.ptype = [ptype, 0, ext_status, shootpoint_op]
                 return ext_status, (ext_path, ptype)
             else:
+                ext_path.staridx = (int(li), int(ri))
                 logger.debug("Extension performed successfully.")
                 ext_path.ptype = [ptype, 0, "ACC", shootpoint_op]
                 return "ACC", (ext_path, ptype)
@@ -154,9 +159,14 @@ def shooting_move(ens, level=0):
                                     ens.id, [ptype, 0, fext_status, shootpoint_op]), ptype)
             else:
                 logger.debug("Extension performed successfully.")
-                return "ACC", (Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                ext_path = Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
                                     bext_tuple[1] + new_path.orders + fext_tuple[1],
-                                    ens.id, [ptype, 0, "ACC", shootpoint_op]), ptype)
+                                    ens.id, [ptype, 0, "ACC", shootpoint_op])
+                if ens.ens_type == "i*_0star" and ext_path.orders[0][0] <= ens.intfs["L"] and ext_path.orders[-1][0] <= ens.intfs["L"]:
+                    ptype = "LML"
+                    ext_path.ptype = [ptype, 0, "ACC", shootpoint_op]
+                ext_path.staridx = (len(bext_tuple[1])-1, len(bext_tuple[1]) + len(new_path.orders)-2)
+                return "ACC", (ext_path, ptype)
     else:
         logger.debug("New path satisfies ensemble crossing conditions.")
         new_path.ptype = [ptype, 0, "ACC", shootpoint_op]
@@ -580,12 +590,10 @@ def propagate(ens, sh, reverse, maxlen, ext=False):
         phs.append((ph[0], reverse*ph[1]))
         ops.append(op)
         LR_pos = check_position(op, ens.intfs['L'], ens.intfs['R'])
-        if pos_star is not None and LR_pos in ens.extremal_conditions:
-            pass
-        else:
-            run_len += 1
+        run_len += 1
         if LR_pos in ens.extremal_conditions:
             if ext:
+                run_len -= 1
                 pos_star = check_position(sh, ens.intfs['L'], ens.intfs['R'])
                 AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
                 if AB_pos != "M":

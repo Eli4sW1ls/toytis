@@ -345,7 +345,10 @@ class Ensemble:
             self.cross_conditions = {}
         
         elif self.ens_type == "body_i*":
-            self.start_conditions = {"L", "R"}
+            if self.id >= len(self.intfs["all"])-1 and self.prime_both_starts:
+                self.start_conditions = {"L", "R"}
+            else:
+                self.start_conditions = {"L"}
             self.end_conditions = {"L", "R"}
             self.cross_conditions = {"M"}
         
@@ -605,7 +608,7 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_i*":
             # For body ensembles, we start at the left interface
-            rand_stop = np.random.randint(self.id-1, len(self.intfs["all"]))
+            rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
             rand_start = np.random.randint(self.id-1)
             start = self.intfs["all"][rand_start]*(1 - np.sign(self.intfs["all"][rand_start])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
@@ -627,11 +630,15 @@ class Ensemble:
         # We set the velocity of each point to zero.
         phasepoints1 = [(i,0.) for i in np.linspace(start, mid, N)]
         phasepoints2 = [(i,0.) for i in np.linspace(mid, stop, N)]
+        p2 = len([ph for ph in phasepoints2 if ph[0] <= self.intfs["R"]])
+        p1 = len([ph for ph in phasepoints1 if ph[0] <= self.intfs["L"]])
+        pp1 = N - p1
         if self.ens_type == "i*_0star":
             if rand_stop < len(self.intfs["all"])-1:
                 phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]-0.002]))
         elif self.ens_type == "body_i*":
             if rand_start > 0:
+                p1 += len([ph for ph in phasepoints1 if self.orderparameter.calculate(ph) <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)])
                 phasepoints1 = list(reversed([ph for ph in phasepoints1 if self.orderparameter.calculate(ph) <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)])) + phasepoints1
             if rand_stop < len(self.intfs["all"])-1:
                 phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph) >= self.intfs["all"][rand_stop-1]*(1 - np.sign(self.intfs["all"][rand_stop-1])*0.001)]))
@@ -640,6 +647,10 @@ class Ensemble:
         phasepoints = phasepoints1 + phasepoints2[1:]
         orders = orders1 + orders2[1:]
         path = Path(phasepoints, orders, self.id)
+        if self.ens_type == "i*_0star":
+            path.staridx = (0, int(N)+p2)
+        else:
+            path.staridx = (int(p1), int(p1 + pp1 + p2))
         # if self.save_pe2:  # Such that we have enough to write to pe2
         #     for i in range(self.pe2_N):
         #         self.paths.append(path)
