@@ -345,7 +345,7 @@ class Ensemble:
             self.cross_conditions = {}
         
         elif self.ens_type == "body_i*":
-            if self.id >= len(self.intfs["all"])-1 and self.prime_both_starts:
+            if self.id < len(self.intfs["all"])-1 or self.prime_both_starts:
                 self.start_conditions = {"L", "R"}
             else:
                 self.start_conditions = {"L"}
