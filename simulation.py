@@ -301,7 +301,7 @@ class Simulation:
                 logger.info("-" * 80)
                 if np.random.rand() < p_shoot:
                     self.do_shooting_moves()
-                    # if self.cycle % 10 == 0 or self.cycle == 1:
+                    # if self.cycle % 1 == 0 or self.cycle == 1:
                     #     ps = []
                     #     for i in range(len(self.intfs)):
                     #         if self.ensembles[i].ens_type != "state_A":
