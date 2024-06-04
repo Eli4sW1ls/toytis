@@ -3,6 +3,7 @@ import numpy as np
 from ensemble import Ensemble
 from moves import shooting_move, swap, swap_zero, repptis_swap
 from snakemove import snake_move, forced_extension
+from pgmoves import pg_shooting_move
 import pickle as pkl
 from funcs import plot_paths
 import matplotlib.pyplot as plt
@@ -89,10 +90,12 @@ class Simulation:
         """
         self.cycle += 1
         for ens in self.ensembles:
-            status, trial = shooting_move(ens)
+            if ens.ens_type in ["body_i*", "i*_0star"]: 
+                status, trial = pg_shooting_move(ens)
+            else:
+                status, trial = shooting_move(ens)
             logger.info("Shooting move in {} resulted in {}".format(
                 ens.name, status))
-            # print(status, trial.ptype if type(trial) is not tuple else trial[0].ptype)
             ens.update_data(status, trial, "sh", self.cycle)
 
 
@@ -336,6 +339,43 @@ class Simulation:
         """
         with open(filename, "rb") as f:
             return pkl.load(f)
+        
+
+    ####### [i*] SIMULATION FUNCTIONS ########
+
+    # If we would ever need a separate run function
+    def run_pg(self):
+        p_shoot = self.p_shoot
+        while self.cycle < self.max_cycles:
+            try:
+                logger.info("-" * 80)
+                logger.info("Cycle {}".format(self.cycle))
+                logger.info("-" * 80)
+                if np.random.rand() < p_shoot:
+                    self.do_shooting_moves()
+                    # if self.cycle % 1 == 0 or self.cycle == 1:
+                    #     ps = []
+                    #     for i in range(len(self.intfs)):
+                    #         if self.ensembles[i].ens_type != "state_A":
+                    #             ps += [self.ensembles[i].last_path]
+                    #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                    #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                    #     plot_paths(ps, self.ensembles[i].intfs["all"])
+                    #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                    #     print(self.cycle)
+                    #     plt.close('all')
+                else:
+                    self.do_swap_moves()
+            except KeyboardInterrupt:
+                print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
+                try:
+                    response = input()
+                    if response == 'q':
+                        break
+                    print('Resuming...')
+                except KeyboardInterrupt:
+                    print('Resuming...')
+                    continue
 
     ############################################################
     # Old functions that allowed a snake to use its memory of prior MCMC paths.

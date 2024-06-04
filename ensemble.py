@@ -155,16 +155,13 @@ class Ensemble:
             trial = trial[0]
         else:
             ptype = self.get_ptype(trial)
-        ordermin = min([op[0] for op in trial.orders])
-        ordermax = max([op[0] for op in trial.orders])
-        if np.argmin([op[0] for op in trial.orders]) < np.argmax([op[0] for op in trial.orders]):
+        ordermin = (min([op[0] for op in trial.orders]), np.argmin([op[0] for op in trial.orders]))
+        ordermax = (max([op[0] for op in trial.orders]), np.argmax([op[0] for op in trial.orders]))
+        if self.simtype == "i*" and ordermin[1] < ordermax[1]:
             dir = 1
         else:
             dir = -1
-        if trial.ptype is not None:
-            trial.ptype[1] = dir
         plen = len(trial.phasepoints)
-        #self.paths.append(trial)
         self.cycle += 1
         if status == "ACC":
             self.cycle_acc += 1
@@ -175,17 +172,17 @@ class Ensemble:
                 if len(self.paths) > self.max_paths:
                     # remove the last path from the list
                     self.paths.pop()
+            if self.simtype == "retis" or self.simtype == "i*":
+                if gen == "sh":
+                    self.cycle_md += 1
+            if self.simtype == "repptis":
+                if gen in ["s-", "s+", "sh"]:
+                    self.cycle_md += 1
         else:  # not ACC
             if update_paths:
                 self.paths.insert(0, self.paths[0])  # TODO: this was copy_path
                 if len(self.paths) > self.max_paths:
                     self.paths.pop()
-        if self.simtype == "retis":
-            if gen == "sh":
-                self.cycle_md += 1
-        if self.simtype == "repptis":
-            if gen in ["s-", "s+", "sh"]:
-                self.cycle_md += 1
 
         # Now we write the data to the path ensemble file
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
@@ -258,7 +255,7 @@ class Ensemble:
             f.write(PATH_FMT.format(
                 simcycle, cycle_acc, cycle_md, ptype[0], ptype[1], ptype[2],
                 plen, status, gen,
-                ordermin, ordermax, dir, 0, 0., 0, 0, 1.) + "\n")
+                ordermin[0], ordermax[0], ordermin[1], ordermax[1], 0., 0, dir, 1.) + "\n")
     
     def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir):
         with open(str(self.id).zfill(3) + "/order.txt", "a") as f:
@@ -630,6 +627,8 @@ class Ensemble:
         # We set the velocity of each point to zero.
         phasepoints1 = [(i,0.) for i in np.linspace(start, mid, N)]
         phasepoints2 = [(i,0.) for i in np.linspace(mid, stop, N)]
+
+        # For [i*]: turns need to be added
         p2 = len([ph for ph in phasepoints2 if ph[0] <= self.intfs["R"]])
         p1 = len([ph for ph in phasepoints1 if ph[0] <= self.intfs["L"]])
         pp1 = N - p1
@@ -642,11 +641,13 @@ class Ensemble:
                 phasepoints1 = list(reversed([ph for ph in phasepoints1 if self.orderparameter.calculate(ph) <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)])) + phasepoints1
             if rand_stop < len(self.intfs["all"])-1:
                 phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph) >= self.intfs["all"][rand_stop-1]*(1 - np.sign(self.intfs["all"][rand_stop-1])*0.001)]))
+        
         orders1 = [self.orderparameter.calculate(ph) for ph in phasepoints1]
         orders2 = [self.orderparameter.calculate(ph) for ph in phasepoints2]
         phasepoints = phasepoints1 + phasepoints2[1:]
         orders = orders1 + orders2[1:]
         path = Path(phasepoints, orders, self.id)
+
         if self.ens_type == "i*_0star":
             path.staridx = (0, int(N)+p2)
         else:
