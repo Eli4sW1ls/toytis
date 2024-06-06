@@ -3,7 +3,7 @@ import numpy as np
 from ensemble import Ensemble
 from moves import shooting_move, swap, swap_zero, repptis_swap
 from snakemove import snake_move, forced_extension
-from pgmoves import pg_shooting_move, swap_zero_star, swap_star, shooting_move_old
+from pgmoves import pg_shooting_move, pg_swap_zero, pg_swap, shooting_move_old
 import pickle as pkl
 from funcs import plot_paths
 import matplotlib.pyplot as plt
@@ -151,7 +151,7 @@ class Simulation:
         """
         if i == 0:
             if self.simtype == "i*":
-                status, trial1, trial2 = swap_zero_star(self.ensembles)
+                status, trial1, trial2 = pg_swap_zero(self.ensembles)
             else:
                 status, trial1, trial2 = swap_zero(self.ensembles)
             logger.info("Swap move {} <-> {} resulted in {}".format(
@@ -175,7 +175,7 @@ class Simulation:
             self.ensembles[i+1].update_data(status, trial2, "s-", self.cycle)
         
         elif self.simtype == "i*":
-            status, trial1, trial2 = swap_star(self.ensembles, i)
+            status, trial1, trial2 = pg_swap(self.ensembles, i)
             logger.info("Swap move {} <-> {} resulted in {}".format(
                 self.ensembles[i].name, self.ensembles[i+1].name, status))
             self.ensembles[i].update_data(status, trial1, "s+", self.cycle)
@@ -326,7 +326,7 @@ class Simulation:
                 logger.info("-" * 80)
                 if np.random.rand() < p_shoot:
                     self.do_shooting_moves()
-                    # if self.cycle % 5 == 0 or self.cycle == 1:
+                    # if self.cycle % 50 == 0 or self.cycle == 1:
                     #     ps = []
                     #     for i in range(len(self.intfs)):
                     #         if self.ensembles[i].ens_type != "state_A":

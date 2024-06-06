@@ -182,7 +182,7 @@ def pg_shooting_move(ens, level=0):
             ext_path.staridx = (len(bext_tuple[1])-1, len(bext_tuple[1]) + len(new_path.orders)-2)
             return "ACC", (ext_path, ptype)
         
-def swap_zero_star(ensembles):
+def pg_swap_zero(ensembles):
     """ Performs a swap move between the [0^-] (or [0^-']) and [0^*] (or [0^*'])
     ensembles. This requires integration.
 
@@ -214,7 +214,7 @@ def swap_zero_star(ensembles):
     # phasepoint forwards in time. Remember, the shoot phasepoint is already
     # present in ph1 and op1 via cut_extremal_phasepoints.
     ph1, op1, sh1 = cut_extremal_phasepoints(ens0, 1.)
-    status1, tuple1 = ext_propagate(ens1, sh1, 1., ens1.max_len - 2)
+    status1, tuple1 = propagate(ens1, sh1, 1., ens1.max_len - 2)
     # If not successful, return the status and the partially propagated path
     if status1 != "ACC":
         logger.debug("Forwards propagation not successful: {}".format(status1))
@@ -223,9 +223,28 @@ def swap_zero_star(ensembles):
                                             ens1.id))
     # If successful, the new path should satisfy the crossing conditions.
     new_path1 = Path(ph1 + tuple1[0], op1 + tuple1[1], ens1.id)
+    ptype1 = ens1.get_ptype(new_path1)
+
     if not ens1.check_cross(new_path1):
         logger.warning("New path [0^+] doesn't satisfy ens cross conditions")
         return "NCR", ens1.paths[0], new_path1
+    if ptype1 != "LML":
+        ext_status, ext_tuple = ext_propagate(ens1, new_path1.phasepoints[-1], 1.,
+                                ens1.max_len-len(new_path1.orders))
+        if ext_status != "ACC":
+            logger.debug("Forwards extension in [0^+] not successful: {}".format(
+                ext_status))
+            return ext_status, ens1.paths[0], (Path(ph1 + tuple1[0] + ext_tuple[0],
+                                            op1 + tuple1[1] + ext_tuple[1],
+                                            ens1.id), [ptype1, 0, ext_status, op1])
+        if new_path1.orders[-1][0] <= ens1.intfs["L"]:
+            ptype1 = "LML"
+        new_path1 = Path(ph1 + tuple1[0] + ext_tuple[0], op1 + tuple1[1] + ext_tuple[1], ens1.id, 
+                         [ptype1, 0, ext_status, op1])
+    else:
+        new_path1.meta = [ptype1, 0, ext_status, op1]
+    new_path1.staridx = (1, len(tuple1[1])-1)
+    
     # 2. create the new path for the [0^-] ensemble.
     # Cut the first two phasepoints of the [0^+] path, and propagate the first
     # phasepoint backwards in time. Remember, the shoot phasepoint is already
@@ -244,10 +263,10 @@ def swap_zero_star(ensembles):
         return "NCR", new_path0, new_path1
     # If we reached this point, both new paths have been double checked, and we
     # return the accepted paths.
-    return "ACC", (new_path0, "RMR"), (new_path1, "LMR")
+    return "ACC", (new_path0, "RMR"), (new_path1, ptype1)
 
 
-def swap_star(ensembles, idx):
+def pg_swap(ensembles, idx):
     """ Performs a swap move between the last paths of two ensembles from an [i*] simulation.
     We only have to check whether the path of ensembles[idx] satisfies the crossing conditions
     of ensembles[idx+1].
@@ -265,11 +284,37 @@ def swap_star(ensembles, idx):
         Boolean indicating whether the swap move was successful
 
     """
-    is_path, ptype = check_path_star(ensembles[idx+1], ensembles[idx].paths[0])
-    if is_path:
-        return "ACC", ensembles[idx+1].paths[0], ensembles[idx].paths[0]
+    is_path1, ptype1 = pg_check_path(ensembles[idx+1], ensembles[idx].paths[0])
+    is_path2, ptype2 = pg_check_path(ensembles[idx], ensembles[idx+1].paths[0])
+    if is_path1 and is_path2:
+        idx1 = [i for i in range(ensembles[idx].paths[0].staridx[0], ensembles[idx].paths[0].staridx[1]+1) 
+                if check_position(ensembles[idx].paths[0].orders[i][0], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) == "M"]
+        idx2 = [i for i in range(ensembles[idx+1].paths[0].staridx[0], ensembles[idx+1].paths[0].staridx[1]+1) 
+                if check_position(ensembles[idx+1].paths[0].orders[i][0], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) == "M"]
+        if idx1[0] == ensembles[idx].paths[0].staridx[0]:
+            idx1l = idx1[0]
+            idx1r = [i for i in range(ensembles[idx].paths[0].staridx[1]+1, len(ensembles[idx].paths[0].orders)) 
+                if check_position(ensembles[idx].paths[0].orders[i][0], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) == "M"][-1]
+        else: 
+            idx1l = [i for i in range(0, ensembles[idx].paths[0].staridx[0]+1) 
+                if check_position(ensembles[idx].paths[0].orders[i][0], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) == "M"][0]
+            idx1r = idx1[-1]
+        ensembles[idx].paths[0].staridx = (idx1l, idx1r)
+            
+        if idx2[0] == ensembles[idx+1].paths[0].staridx[0]:
+            idx2l = idx2[0]
+            idx2r = [i for i in range(ensembles[idx+1].paths[0].staridx[1]+1, len(ensembles[idx+1].paths[0].orders)) 
+                if check_position(ensembles[idx+1].paths[0].orders[i][0], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) == "M"][-1]
+        else: 
+            idx2l = [i for i in range(0, ensembles[idx+1].paths[0].staridx[0]+1) 
+                if check_position(ensembles[idx+1].paths[0].orders[i][0], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) == "M"][0]
+            idx2r = idx2[-1]
+        ensembles[idx+1].paths[0].staridx = (idx2l, idx2r)
+
+        
+        return "ACC", (ensembles[idx+1].paths[0], ptype2), (ensembles[idx].paths[0], ptype1)
     else:
-        return "NCR", ensembles[idx+1].paths[0], ensembles[idx].paths[0]
+        return "NCR", (ensembles[idx+1].paths[0], ptype2), (ensembles[idx].paths[0], ptype1)
     
 
 def ext_propagate(ens, ext_pt, reverse, maxlen):
@@ -385,7 +430,7 @@ def num_shootpoints(orders, l, r):
     ops = np.array(orders)
     return np.count_nonzero(np.logical_and(ops >= l, ops <= r))
 
-def check_path_star(ens, path):
+def pg_check_path(ens, path):
     """ Checks whether a path is valid for the ensemble.
 
         Parameters
@@ -402,7 +447,8 @@ def check_path_star(ens, path):
     #TODO: add check if path has two turns that are far enough apart (or ends in A/B)
     ordermin = (min([op[0] for op in path.orders]), np.argmin([op[0] for op in path.orders]))
     ordermax = (max([op[0] for op in path.orders]), np.argmax([op[0] for op in path.orders]))
-    
+    valid = (ordermin[0] > ens.intfs["all"][0] or ordermin[1] > 0) and \
+            (ordermax[0] < ens.intfs["all"][-1] or ordermax[1] < len(path.orders)-1)
 
     if check_position(ordermin[0], ens.intfs["L"], ens.intfs["R"]) == "M":
         ptype = "RMR"
