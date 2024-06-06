@@ -36,8 +36,8 @@ class LangevinEngine:
         self.T = self.settings["temperature"]
         self.gamma = self.settings["friction"]
         # self.potential = Potential()
-        self.potential = CosBumpSeriesWalls()
-        # self.potential = FlatWall1D()
+        # self.potential = CosBumpSeriesWalls()
+        self.potential = FlatWall1D()
         # self.potential = CosDipMetastableWalls()
         self.phasepoint = None
         self.kB = 1.0
@@ -98,7 +98,7 @@ class LangevinEngine:
         x, v = ph
         
         force = self.potential.force((x, v))
-
+        
         # Adapted from PyRETIS implementation, EW, May 2024
         if self.high_friction:
             rands = np.random.normal(loc = 0.0, scale=self.sigma, size=self.dim)

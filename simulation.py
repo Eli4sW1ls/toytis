@@ -3,7 +3,7 @@ import numpy as np
 from ensemble import Ensemble
 from moves import shooting_move, swap, swap_zero, repptis_swap
 from snakemove import snake_move, forced_extension
-from pgmoves import pg_shooting_move
+from pgmoves import pg_shooting_move, swap_zero_star, swap_star, shooting_move_old
 import pickle as pkl
 from funcs import plot_paths
 import matplotlib.pyplot as plt
@@ -58,6 +58,7 @@ class Simulation:
         self.p_shoot = settings.get("p_shoot", 0.9)
         self.include_stateB = settings.get("include_stateB", False)
         self.prime_both_starts = settings.get("prime_both_starts", False)
+        self.high_friction = settings.get("high_friction", False)
         #self.snake_Lmax = settings.get("snake_Lmax", 5)
         #self.save_pe2 = settings.get("save_pe2", False)
         
@@ -91,7 +92,17 @@ class Simulation:
         self.cycle += 1
         for ens in self.ensembles:
             if ens.ens_type in ["body_i*", "i*_0star"]: 
+                # np.random.seed(ens.cycle)
                 status, trial = pg_shooting_move(ens)
+                # np.random.seed(ens.cycle)
+                # status2, trial2 = shooting_move_old(ens)
+                # if status != status2:
+                #     break
+                # if type(trial) is tuple:
+                #     assert trial[1] == trial2[1]
+                #     trial = trial[0]; trial2 = trial2[0]
+                # assert trial.phasepoints == trial2.phasepoints and trial.meta == trial2.meta and trial.orders == trial2.orders and trial.ens_id == trial2.ens_id \
+                # and trial.staridx == trial2.staridx
             else:
                 status, trial = shooting_move(ens)
             logger.info("Shooting move in {} resulted in {}".format(
@@ -139,7 +150,10 @@ class Simulation:
 
         """
         if i == 0:
-            status, trial1, trial2 = swap_zero(self.ensembles)
+            if self.simtype == "i*":
+                status, trial1, trial2 = swap_zero_star(self.ensembles)
+            else:
+                status, trial1, trial2 = swap_zero(self.ensembles)
             logger.info("Swap move {} <-> {} resulted in {}".format(
                 self.ensembles[i].name, self.ensembles[i+1].name, status))
             self.ensembles[i].update_data(status, trial1, "s+", self.cycle)
@@ -155,6 +169,13 @@ class Simulation:
 
         elif self.simtype == "repptis":
             status, trial1, trial2 = repptis_swap(self.ensembles, i)
+            logger.info("Swap move {} <-> {} resulted in {}".format(
+                self.ensembles[i].name, self.ensembles[i+1].name, status))
+            self.ensembles[i].update_data(status, trial1, "s+", self.cycle)
+            self.ensembles[i+1].update_data(status, trial2, "s-", self.cycle)
+        
+        elif self.simtype == "i*":
+            status, trial1, trial2 = swap_star(self.ensembles, i)
             logger.info("Swap move {} <-> {} resulted in {}".format(
                 self.ensembles[i].name, self.ensembles[i+1].name, status))
             self.ensembles[i].update_data(status, trial1, "s+", self.cycle)
@@ -192,6 +213,7 @@ class Simulation:
         ens_set["max_paths"] = self.settings["max_paths"]
         ens_set["mass"] = self.settings["mass"]
         ens_set["dim"] = self.settings["dim"]
+        ens_set["high_friction"] = self.settings["high_friction"]
 
         if self.permeability:
             assert self.zero_left is not None, "No zero_left for permeability"
@@ -304,7 +326,7 @@ class Simulation:
                 logger.info("-" * 80)
                 if np.random.rand() < p_shoot:
                     self.do_shooting_moves()
-                    # if self.cycle % 1 == 0 or self.cycle == 1:
+                    # if self.cycle % 5 == 0 or self.cycle == 1:
                     #     ps = []
                     #     for i in range(len(self.intfs)):
                     #         if self.ensembles[i].ens_type != "state_A":

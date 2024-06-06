@@ -102,6 +102,7 @@ class Ensemble:
         self.cycle_md = 0
         self.simtype = settings["simtype"]
         self.prime_both_starts = settings.get("prime_both_starts", False)
+        self.high_friction = settings.get("high_friction", False)
         #self.save_pe2 = settings.get("save_pe2", False)
         #self.pe2_len = settings.get("pe2_len", 0)
         #self.pe2_N = settings.get("pe2_N", self.max_paths)

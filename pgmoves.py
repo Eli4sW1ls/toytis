@@ -3,7 +3,7 @@ import logging
 
 from funcs import check_position
 from path import Path
-from moves import propagate
+from moves import propagate, cut_extremal_phasepoints
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -111,13 +111,18 @@ def pg_shooting_move(ens, level=0):
         logger.debug("New path does not satisfy ensemble crossing conditions")
         new_path.meta = [ptype, 0, "NCR", shootpoint_op]
         return "NCR", new_path
-    
     if ptype == "RMR" or ptype == "LML":
         prop_idx = np.random.choice([0, -1])
         rev = -np.sign(prop_idx+0.5)
         prop_point = new_path.phasepoints[prop_idx]
+        # np.random.seed(0)
         ext_status, ext_tuple = ext_propagate(ens, prop_point, 
                                             rev, ens.max_len-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]))
+        # np.random.seed(0)
+        # ext_status2, ext_tuple2 = propagate_old(ens, prop_point, 
+        #                                     rev, ens.max_len-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
+        # assert ext_status == ext_status2
+        # assert ext_tuple == ext_tuple2
         if rev == -1:
             ext_path = Path(ext_tuple[0] + new_path.phasepoints,
                             ext_tuple[1] + new_path.orders,
@@ -139,7 +144,12 @@ def pg_shooting_move(ens, level=0):
             ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
             return "ACC", (ext_path, ptype)
     else:
+        # np.random.seed(0)
         bext_status, bext_tuple = ext_propagate(ens, new_path.phasepoints[0], -1., ens.max_len-len(new_path.orders))
+        # np.random.seed(0)
+        # bext_status2, bext_tuple2 = propagate_old(ens, new_path.phasepoints[0], -1., ens.max_len-len(new_path.orders), True)
+        # assert bext_status == bext_status2
+        # assert bext_tuple == bext_tuple2
         if bext_status != "ACC": 
             logger.debug("Backwards extension not successful: {}".format(
                 bext_status))
@@ -147,8 +157,14 @@ def pg_shooting_move(ens, level=0):
                                 bext_tuple[1]+new_path.orders,
                                 ens.id, [ptype, 0, bext_status, shootpoint_op]), ptype)
         
+        # np.random.seed(0)
         fext_status, fext_tuple = ext_propagate(ens, new_path.phasepoints[-1], 1.,
                                 ens.max_len-len(bext_tuple[0])-len(new_path.orders))
+        # np.random.seed(0)
+        # fext_status2, fext_tuple2 = propagate_old(ens, new_path.phasepoints[-1], 1.,
+        #                         ens.max_len-len(bext_tuple[0])-len(new_path.orders), True)
+        # assert fext_status == fext_status2
+        # assert fext_tuple == fext_tuple2
         if fext_status != "ACC":
             logger.debug("Forwards extension not successful: {}".format(
                 fext_status))
@@ -165,6 +181,95 @@ def pg_shooting_move(ens, level=0):
                 ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
             ext_path.staridx = (len(bext_tuple[1])-1, len(bext_tuple[1]) + len(new_path.orders)-2)
             return "ACC", (ext_path, ptype)
+        
+def swap_zero_star(ensembles):
+    """ Performs a swap move between the [0^-] (or [0^-']) and [0^*] (or [0^*'])
+    ensembles. This requires integration.
+
+    The path of the [0^-] ensemble is extended into the [0^*] ensemble by
+    propagating the last path forwards in time. We keep the last two
+    phasepoints of [0^-], and extend starting from the last phasepoint.
+    The path of the [0^*] ensemble is extended into the [0^-] ensemble
+    by propagating the last path backwards in time. We keep the first two
+    phasepoints of [0^*], and extend starting from the first phasepoint.
+
+    Parameters
+    ----------
+    ensembles: list of :py:class:`Ensemble` objects
+        List of ensembles present in the simulation
+
+    Returns
+    -------
+    success : string
+        String indicating whether the swap move was successful
+    new_path_0m : :py:class:`Path` object
+        New path of the [0^-] ensemble
+    new_path_0star : :py:class:`Path` object
+        New path of the [0^*] ensemble
+
+    """
+    ens0, ens1 = ensembles[0], ensembles[1]
+    # 1. create the new path for the [0^+] ensemble.
+    # Cut the last two phasepoints of the [0^-] path, and propagate the last
+    # phasepoint forwards in time. Remember, the shoot phasepoint is already
+    # present in ph1 and op1 via cut_extremal_phasepoints.
+    ph1, op1, sh1 = cut_extremal_phasepoints(ens0, 1.)
+    status1, tuple1 = ext_propagate(ens1, sh1, 1., ens1.max_len - 2)
+    # If not successful, return the status and the partially propagated path
+    if status1 != "ACC":
+        logger.debug("Forwards propagation not successful: {}".format(status1))
+        return status1, ens1.paths[0], (Path(ph1 + tuple1[0],
+                                            op1 + tuple1[1],
+                                            ens1.id))
+    # If successful, the new path should satisfy the crossing conditions.
+    new_path1 = Path(ph1 + tuple1[0], op1 + tuple1[1], ens1.id)
+    if not ens1.check_cross(new_path1):
+        logger.warning("New path [0^+] doesn't satisfy ens cross conditions")
+        return "NCR", ens1.paths[0], new_path1
+    # 2. create the new path for the [0^-] ensemble.
+    # Cut the first two phasepoints of the [0^+] path, and propagate the first
+    # phasepoint backwards in time. Remember, the shoot phasepoint is already
+    # present in ph0 and op0 via cut_extremal_phasepoints.
+    ph0, op0, sh0 = cut_extremal_phasepoints(ens1, -1.)
+    status0, tuple0 = propagate(ens0, sh0, -1., ens0.max_len - 2)
+    # If not successful, return the status and the partially propagated path
+    if status0 != "ACC":
+        logger.debug("Backwards propagation not successful: {}".format(status0))
+        return status0, Path(tuple0[0] + ph0, tuple0[1] + op0, ens0.id),\
+            new_path1
+    # If successful, the new path should satisfy the crossing conditions.
+    new_path0 = Path(tuple0[0] + ph0, tuple0[1] + op0, ens0.id)
+    if not ens0.check_cross(new_path0):
+        logger.warning("New path [0^-] doesn't satisfy ens cross conditions")
+        return "NCR", new_path0, new_path1
+    # If we reached this point, both new paths have been double checked, and we
+    # return the accepted paths.
+    return "ACC", (new_path0, "RMR"), (new_path1, "LMR")
+
+
+def swap_star(ensembles, idx):
+    """ Performs a swap move between the last paths of two ensembles from an [i*] simulation.
+    We only have to check whether the path of ensembles[idx] satisfies the crossing conditions
+    of ensembles[idx+1].
+
+    Parameters
+    ----------
+    ensembles: list of :py:class:`Ensemble` objects
+        List of ensembles present in the simulation
+    idx: int
+        Index of the ensemble to swap with the next ensemble in the list
+
+    Returns
+    -------
+    success : boolean
+        Boolean indicating whether the swap move was successful
+
+    """
+    is_path, ptype = check_path_star(ensembles[idx+1], ensembles[idx].paths[0])
+    if is_path:
+        return "ACC", ensembles[idx+1].paths[0], ensembles[idx].paths[0]
+    else:
+        return "NCR", ensembles[idx+1].paths[0], ensembles[idx].paths[0]
     
 
 def ext_propagate(ens, ext_pt, reverse, maxlen):
@@ -197,12 +302,12 @@ def ext_propagate(ens, ext_pt, reverse, maxlen):
     if reverse == -1:
         logger.debug("Propagating backwards")
         conds = {"cond": ens.start_conditions,
-                 "rej_maxlen": "BTL",
+                 "rej_maxlen": "BTX",
                  "type_cond": "start"}
     elif reverse == 1:
         logger.debug("Propagating forwards")
         conds = {"cond": ens.end_conditions,
-                 "rej_maxlen": "FTL",
+                 "rej_maxlen": "FTX",
                  "type_cond": "end"}
     else:
         raise ValueError("reverse must be either 1 or -1")
@@ -211,7 +316,13 @@ def ext_propagate(ens, ext_pt, reverse, maxlen):
     run_len = 0
     run_worthy = True
     ph = (ext_pt[0], reverse*ext_pt[1])
-    pos_star = None
+    pos_star = check_position(ext_pt, ens.intfs['L'], ens.intfs['R'])
+    AB_pos = check_position(ext_pt, ens.intfs['all'][0], ens.intfs['all'][-1])
+    if AB_pos != "M":
+        run_worthy = False
+        msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
+        logger.debug(msg)
+        status = 'ACC'
     while run_worthy:
         #logger.debug("ph = %s", ph)
         ph = ens.engine.step(ph)
@@ -220,18 +331,18 @@ def ext_propagate(ens, ext_pt, reverse, maxlen):
         ops.append(op)
         run_len += 1
         if run_len >= maxlen:
-            logger.debug(f"Path too long ({run_len} >= {maxlen}).")
+            logger.debug(f"!! Path reached max_len ({run_len} >= {maxlen}). !!")
+            print(f"!! Path in ensemble {ens.ens_id} reached max_len ({run_len} >= {maxlen}). !!")
             status = conds['rej_maxlen']
             run_worthy = False
         else:
-            pos_star = check_position(ext_pt, ens.intfs['L'], ens.intfs['R'])
             AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
             if AB_pos != "M":
                 run_worthy = False
                 msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
                 logger.debug(msg)
                 status = 'ACC'
-            elif turn_detected(ens, pos_star, ops):
+            elif turn_detected(ens, pos_star, [ens.orderparameter.calculate(ext_pt)] + ops):
                 run_worthy = False
                 msg = f"Path made a turn while moving {'forwards' if reverse == 1 else 'backwards'}."
                 logger.debug(msg)
@@ -243,7 +354,6 @@ def ext_propagate(ens, ext_pt, reverse, maxlen):
         trial_tuple = (phs, ops, ens.id)
 
     return status, trial_tuple
-
 
 def turn_detected(ens, pos, ops):
     """Detects if a path has made a turn. This is a termination condition of a path in the [i*] ensemble.
@@ -274,3 +384,309 @@ def turn_detected(ens, pos, ops):
 def num_shootpoints(orders, l, r):
     ops = np.array(orders)
     return np.count_nonzero(np.logical_and(ops >= l, ops <= r))
+
+def check_path_star(ens, path):
+    """ Checks whether a path is valid for the ensemble.
+
+        Parameters
+        ----------
+        path : :py:class:`Path` object
+            Path to check
+
+        Returns
+        -------
+        bool
+            True if the path is valid for the ensemble, False otherwise
+
+    """
+    #TODO: add check if path has two turns that are far enough apart (or ends in A/B)
+    ordermin = (min([op[0] for op in path.orders]), np.argmin([op[0] for op in path.orders]))
+    ordermax = (max([op[0] for op in path.orders]), np.argmax([op[0] for op in path.orders]))
+    
+
+    if check_position(ordermin[0], ens.intfs["L"], ens.intfs["R"]) == "M":
+        ptype = "RMR"
+    elif check_position(ordermax[0], ens.intfs["L"], ens.intfs["R"]):
+        ptype = "LML"
+    elif np.all(path.orders > ens.intfs["L"]) or np.all(path.orders < ens.intfs["R"]) == "M":
+        return False, "***"
+    else:
+        # ptype = path.meta[0]
+        LtR = ordermin[1] < ordermax[1]
+        ptype = "LMR" if LtR else "RML" 
+
+    # Conditions
+    valid = (len(ens.start_conditions) == 0 or ptype[0] in ens.start_conditions) and \
+            (len(ens.end_conditions) == 0 or ptype[2] in ens.end_conditions) and \
+            (len(ens.cross_conditions) == 0 or ptype[1] in ens.cross_conditions)
+    return valid, ptype
+
+def shooting_move_old(ens, level=0):
+    """ Performs a shooting move in the ensemble.
+
+    A random phasepoint of the last_accepted path in the ensemble is chosen,
+    excluding the first and last phasepoints. This new phasepoint, called the
+    shootpoint, is given new velocities drawn from the Maxwell-Boltzmann
+    distribution. A new path is generated by propagating the shootpoint
+    backwards and forwards in time. Note that backwards propagation is done
+    by reversing the velocities of the shootpoint.
+
+    To obey detailed balance, the new path is accepted with probability
+    min(1, len(old_path)/len(new_path)). For efficiency sake, we draw a random
+    number between 0 and 1 and propagate the new_path until len(old_path)/Q.
+
+    The new_path is checked whether it is an acceptable path for the ensemble.
+
+    Parameters
+    ----------
+    ens : :py:class:`Ensemble` object
+        Ensemble in which the shooting move is performed
+    level : int
+        The level of the path to shoot from in ensemble ens. Default is 0.
+
+    Returns
+    -------
+    success : string
+        String indicating whether the shooting move was successful
+    new_path : :py:class:`Path` object
+        New path generated by the shooting move
+
+    """
+    path = ens.paths[level]  # last accepted path
+    pathlen = len(path.phasepoints)
+    if ens.ens_type in ["body_i*", "i*_0star"]:
+        poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"] and i >= path.staridx[0] and i <= path.staridx[1])]
+        if ens.ens_type == "i*_0star":
+            poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["all"][0] and path.orders[i][0] <= ens.intfs["all"][1] and i >= path.staridx[0] and i <= path.staridx[1])]
+        else:
+            poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"] and i >= path.staridx[0] and i <= path.staridx[1])]
+        n_ph = len(poss_sh)
+        sh_id = np.random.choice(poss_sh)
+    else:
+        n_ph = pathlen
+        sh_id = np.random.randint(1,n_ph-1)
+    shootpoint = (path.phasepoints[sh_id][0],
+                  ens.engine.draw_velocities())
+    shoot_maxlen = min(n_ph/np.random.random(), ens.max_len)
+    # We will not recalculate the orderparameter for this phasepoint, as 
+    # external engines may save phasepoints at a lower precision. This can 
+    # lead to the recalculated phasepoint shifting position w.r.t. an interface,
+    # resulting in all sorts of nasty problems.
+    # shootpoint_op = ens.orderparameter.calculate(shootpoint)
+    shootpoint_op = path.orders[sh_id]
+    logger.debug("Shooting from ph {} (idx: {}) with op {}".format(
+        shootpoint, sh_id, shootpoint_op))
+    # We now start propagating the shootpoint backwards first, because often
+    # the backwards part (corresponding to the starting condition) is more
+    # restrictive than the forwards part (corresponding to the end condition).
+    # propagate backwards. Maxlen = shoot_maxlen-1, because shootpoint is 1
+    bw_status, bw_tuple = propagate_old(ens, shootpoint, -1., shoot_maxlen-1)
+    # if unsuccessful, return the status and the partially propagated path
+    if bw_status != "ACC": 
+        logger.debug("Backwards propagation not successful: {}".format(
+            bw_status))
+        ptype = ens.get_ptype(Path(bw_tuple[0]+[shootpoint], bw_tuple[1]+[shootpoint_op], ens.id))
+        return bw_status, Path(bw_tuple[0]+[shootpoint],
+                               bw_tuple[1]+[shootpoint_op],
+                               ens.id, [ptype, 0, bw_status, shootpoint_op])
+    # if successful, we continue propagating forwards
+    fw_status, fw_tuple = propagate_old(ens, shootpoint, 1.,
+                                    shoot_maxlen-len(bw_tuple[0]))
+    # if unsuccessful, return the status and the partially propagated path
+    if fw_status != "ACC":
+        logger.debug("Forwards propagation not successful: {}".format(
+            fw_status))
+        ptype = ens.get_ptype(Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
+                               bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                               ens.id))
+        return fw_status, Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
+                               bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                               ens.id, [ptype, 0, fw_status, shootpoint_op])
+    # If succesful, the new path should satisfy the crossing conditions.
+    # logger.debug("Time origin of new path: {}".format(len(bw_tuple[0])-sh_id))
+    ptype = ens.get_ptype(Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
+                    bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                    ens.id))
+    new_path = Path(bw_tuple[0] + [shootpoint] + fw_tuple[0],
+                    bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                    ens.id, [ptype, 0, shootpoint_op])
+    # if the ensemble is a primed PPTIS ensemble, we have to check whether an 
+    # illegal pathtype has occurred. If so, we reject the move with flag 'ILL'. 
+    
+    ptype = ens.get_ptype(new_path)
+    if ptype in ens.illegal_pathtypes:
+        logger.info("Illegal pathtype {} for primed ensemble".format(ptype))
+        new_path.meta = [ptype, 0, "ILL", shootpoint_op]
+        return "ILL", new_path
+    # We have to check whether the new path satisfies the crossing conditions.
+    # TODO: all the above can be done in 'check_path' method of Ensemble, which 
+    # should be rebuilt for this purpose. 
+    if not ens.check_cross(new_path):
+        logger.debug("New path does not satisfy ensemble crossing conditions")
+        new_path.meta = [ptype, 0, "NCR", shootpoint_op]
+        return "NCR", new_path
+    
+    elif ens.ens_type in ["body_i*", "i*_0star"]:
+        ptype = ens.get_ptype(new_path)
+        if ptype == "RMR" or ptype == "LML":
+            prop_idx = np.random.choice([0, -1])
+            rev = -np.sign(prop_idx+0.5)
+            prop_point = new_path.phasepoints[prop_idx]
+            np.random.seed(0)
+            ext_status, ext_tuple = propagate_old(ens, prop_point, 
+                                              rev, shoot_maxlen-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
+            if rev == -1:
+                ext_path = Path(ext_tuple[0] + new_path.phasepoints,
+                                ext_tuple[1] + new_path.orders,
+                                ens.id, [ptype, 1 if ptype=="LML" else -1, shootpoint_op])
+                li = len(ext_tuple[1])+1; ri = len(ext_path.orders)-2
+            else:
+                ext_path = Path(new_path.phasepoints + ext_tuple[0],
+                                new_path.orders + ext_tuple[1],
+                                ens.id, [ptype, -1 if ptype=="LML" else 1, shootpoint_op])
+                li = 1; ri = len(new_path.orders)-2
+            if ext_status != "ACC":
+                logger.debug("Half extension not successful: {}".format(
+                    ext_status))
+                ext_path.meta = [ptype, 0, ext_status, shootpoint_op]
+                return ext_status, (ext_path, ptype)
+            else:
+                ext_path.staridx = (int(li), int(ri))
+                logger.debug("Extension performed successfully.")
+                ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
+                return "ACC", (ext_path, ptype)
+        else:
+            np.random.seed(0)
+            bext_status, bext_tuple = propagate_old(ens, new_path.phasepoints[0], -1., shoot_maxlen-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
+            if bext_status != "ACC": 
+                logger.debug("Backwards extension not successful: {}".format(
+                    bext_status))
+                return bext_status, (Path(bext_tuple[0]+new_path.phasepoints,
+                                    bext_tuple[1]+new_path.orders,
+                                    ens.id, [ptype, 0, bext_status, shootpoint_op]), ptype)
+            
+            np.random.seed(0)
+            fext_status, fext_tuple = propagate_old(ens, new_path.phasepoints[-1], 1.,
+                                    shoot_maxlen-len(bext_tuple[0])-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
+            if fext_status != "ACC":
+                logger.debug("Forwards extension not successful: {}".format(
+                    fext_status))
+                return fext_status, (Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                                    bext_tuple[1] + new_path.orders + fext_tuple[1],
+                                    ens.id, [ptype, 0, fext_status, shootpoint_op]), ptype)
+            else:
+                logger.debug("Extension performed successfully.")
+                ext_path = Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                                    bext_tuple[1] + new_path.orders + fext_tuple[1],
+                                    ens.id, [ptype, 0, "ACC", shootpoint_op])
+                if ens.ens_type == "i*_0star" and ext_path.orders[0][0] <= ens.intfs["L"] and ext_path.orders[-1][0] <= ens.intfs["L"]:
+                    ptype = "LML"
+                    ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
+                ext_path.staridx = (len(bext_tuple[1])-1, len(bext_tuple[1]) + len(new_path.orders)-2)
+                return "ACC", (ext_path, ptype)
+    else:
+        logger.debug("New path satisfies ensemble crossing conditions.")
+        new_path.meta = [ptype, 0, "ACC", shootpoint_op]
+        return "ACC", new_path
+    
+def propagate_old(ens, sh, reverse, maxlen, ext=False):
+    """Propagate from a phasepoint sh in ensemble ens, until either one of 
+    the extremal conditions (ext_cond) is met, or the maximum length of the 
+    path (maxlen) is reached.
+    
+    Parameters
+    ----------
+    ens : :py:class:`Ensemble` object
+        Ensemble to propagate in
+    sh : phasepoint 
+        Phasepoint to propagate from (tuple (x,v))
+    reverse : float 
+        Whether to propagate forwards (1.) or backwards (-1.)
+    maxlen : int
+        Maximum length of the path to generate
+
+    Returns
+    -------
+    status : str
+        Status of the propagation.
+    trial_tuple : tuple
+        tuple of (phs, ops, ens.id) of the trial path
+
+    Notes
+    -----
+    The returned path does **not** include the shooting point!
+
+    """
+    if reverse == -1:
+        logger.debug("Propagating backwards")
+        conds = {"cond": ens.start_conditions,
+                 "rej_intf": "BWI",
+                 "rej_maxlen": "BTL",
+                 "type_cond": "start"}
+    elif reverse == 1:
+        logger.debug("Propagating forwards")
+        conds = {"cond": ens.end_conditions,
+                 "rej_intf": "FWI",
+                 "rej_maxlen": "FTL",
+                 "type_cond": "end"}
+    else:
+        raise ValueError("reverse must be either 1 or -1")
+
+    phs, ops = [], []
+    run_len = 0
+    run_worthy = True
+    ph = (sh[0], reverse*sh[1])
+    pos_star = None
+    while run_worthy:
+        #logger.debug("ph = %s", ph)
+        ph = ens.engine.step(ph)
+        op = ens.orderparameter.calculate(ph)
+        phs.append((ph[0], reverse*ph[1]))
+        ops.append(op)
+        LR_pos = check_position(op, ens.intfs['L'], ens.intfs['R'])
+        run_len += 1
+        if LR_pos in ens.extremal_conditions:
+            if ext:
+                run_len -= 1
+                pos_star = check_position(sh, ens.intfs['L'], ens.intfs['R'])
+                AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
+                if AB_pos != "M":
+                    run_worthy = False
+                    msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
+                    logger.debug(msg)
+                    status = 'ACC'
+            else:
+                run_worthy = False
+                if LR_pos in conds['cond']:
+                    msg = f"Path crossed {LR_pos}, which is part of the "
+                    msg += f"{conds['type_cond']} conditions {conds['cond']}."
+                    logger.debug(msg)
+                    status = "ACC"
+                else:
+                    msg = f"Path crossed {LR_pos}, which is not part of the "
+                    msg += f"{conds['type_cond']} conditions {conds['cond']}."
+                    logger.debug(msg)
+                    status = conds['rej_intf']
+        elif run_len >= maxlen:
+            logger.debug(f"Path too long ({run_len} >= {maxlen}).")
+            status = conds['rej_maxlen']
+            run_worthy = False
+            
+        if pos_star is not None:
+            if AB_pos != "M":
+                run_worthy = False
+                msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
+                logger.debug(msg)
+                status = 'ACC'
+            elif turn_detected(ens, pos_star, ops):
+                run_worthy = False
+                msg = f"Path made a turn while moving {'forwards' if reverse == 1 else 'backwards'}."
+                logger.debug(msg)
+                status = 'ACC'
+    
+    if reverse == -1:
+        trial_tuple = (phs[::-1], ops[::-1], ens.id)
+    else:
+        trial_tuple = (phs, ops, ens.id)
+
+    return status, trial_tuple

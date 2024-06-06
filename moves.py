@@ -508,7 +508,6 @@ def propagate(ens, sh, reverse, maxlen, ext=False):
     run_len = 0
     run_worthy = True
     ph = (sh[0], reverse*sh[1])
-    pos_star = None
     while run_worthy:
         #logger.debug("ph = %s", ph)
         ph = ens.engine.step(ph)
@@ -518,44 +517,22 @@ def propagate(ens, sh, reverse, maxlen, ext=False):
         LR_pos = check_position(op, ens.intfs['L'], ens.intfs['R'])
         run_len += 1
         if LR_pos in ens.extremal_conditions:
-            if ext:
-                run_len -= 1
-                pos_star = check_position(sh, ens.intfs['L'], ens.intfs['R'])
-                AB_pos = check_position(op, ens.intfs['all'][0], ens.intfs['all'][-1])
-                if AB_pos != "M":
-                    run_worthy = False
-                    msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
-                    logger.debug(msg)
-                    status = 'ACC'
+            run_worthy = False
+            if LR_pos in conds['cond']:
+                msg = f"Path crossed {LR_pos}, which is part of the "
+                msg += f"{conds['type_cond']} conditions {conds['cond']}."
+                logger.debug(msg)
+                status = "ACC"
             else:
-                run_worthy = False
-                if LR_pos in conds['cond']:
-                    msg = f"Path crossed {LR_pos}, which is part of the "
-                    msg += f"{conds['type_cond']} conditions {conds['cond']}."
-                    logger.debug(msg)
-                    status = "ACC"
-                else:
-                    msg = f"Path crossed {LR_pos}, which is not part of the "
-                    msg += f"{conds['type_cond']} conditions {conds['cond']}."
-                    logger.debug(msg)
-                    status = conds['rej_intf']
+                msg = f"Path crossed {LR_pos}, which is not part of the "
+                msg += f"{conds['type_cond']} conditions {conds['cond']}."
+                logger.debug(msg)
+                status = conds['rej_intf']
         elif run_len >= maxlen:
             logger.debug(f"Path too long ({run_len} >= {maxlen}).")
             status = conds['rej_maxlen']
             run_worthy = False
-            
-        if pos_star is not None:
-            if AB_pos != "M":
-                run_worthy = False
-                msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
-                logger.debug(msg)
-                status = 'ACC'
-            elif turn_detected(ens, pos_star, ops):
-                run_worthy = False
-                msg = f"Path made a turn while moving {'forwards' if reverse == 1 else 'backwards'}."
-                logger.debug(msg)
-                status = 'ACC'
-    
+        
     if reverse == -1:
         trial_tuple = (phs[::-1], ops[::-1], ens.id)
     else:
