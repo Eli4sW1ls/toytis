@@ -324,7 +324,8 @@ class Simulation:
                 logger.info("-" * 80)
                 logger.info("Cycle {}".format(self.cycle))
                 logger.info("-" * 80)
-                if np.random.rand() < p_shoot:
+                a = np.random.rand()
+                if a < p_shoot:
                     self.do_shooting_moves()
                     # if self.cycle % 50 == 0 or self.cycle == 1:
                     #     ps = []

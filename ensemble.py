@@ -647,10 +647,10 @@ class Ensemble:
         orders2 = [self.orderparameter.calculate(ph) for ph in phasepoints2]
         phasepoints = phasepoints1 + phasepoints2[1:]
         orders = orders1 + orders2[1:]
-        path = Path(phasepoints, orders, self.id)
+        path = Path(phasepoints, orders, self.id, ["LMR", 0, "ACC", None])
 
         if self.ens_type == "i*_0star":
-            path.staridx = (0, int(N)+p2)
+            path.staridx = (1, int(N)+p2-1)
         else:
             path.staridx = (int(p1), int(p1 + pp1 + p2))
         # if self.save_pe2:  # Such that we have enough to write to pe2
