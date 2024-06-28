@@ -191,7 +191,11 @@ class Simulation:
             Index of the ensemble in which to perform the null move.
 
         """
-        self.ensembles[i].update_data("ACC", self.ensembles[i].last_path,
+        if self.simtype == "i*":
+            path = (self.ensembles[i].last_path, "RMR" if i==0 else self.ensembles[i].last_path.meta[0])
+        else:
+            path = self.ensembles[i].last_path
+        self.ensembles[i].update_data("ACC", path,
                                       gen, self.cycle)
         
 
@@ -327,19 +331,19 @@ class Simulation:
                 a = np.random.rand()
                 if a < p_shoot:
                     self.do_shooting_moves()
-                    # if self.cycle % 50 == 0 or self.cycle == 1:
-                    #     ps = []
-                    #     for i in range(len(self.intfs)):
-                    #         if self.ensembles[i].ens_type != "state_A":
-                    #             ps += [self.ensembles[i].last_path]
-                    #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
-                    #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
-                    #     plot_paths(ps, self.ensembles[i].intfs["all"])
-                    #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-                    #     print(self.cycle)
-                    #     plt.close('all')
                 else:
                     self.do_swap_moves()
+                if self.cycle % 50 == 0 or self.cycle == 1:
+                    ps = []
+                    for i in range(len(self.intfs)):
+                        if self.ensembles[i].ens_type != "state_A":
+                            ps += [self.ensembles[i].last_path]
+                            # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                            #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                    plot_paths(ps, self.ensembles[i].intfs["all"])
+                            #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                    print(self.cycle)
+                    plt.close('all')
             except KeyboardInterrupt:
                 print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
                 try:

@@ -49,11 +49,11 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
                 [ph[0] for ph in path.phasepoints], "-x", **kwargs)
         if path.staridx is not None:
             if path.ens_id == 1:
-                ax.plot([i + start_idx for i in range(len(path.orders)) if (path.orders[i][0] >= intfs[0] and path.orders[i][0] <= intfs[1] and i >= path.staridx[0] and i <= path.staridx[1])],
-                        [path.orders[i+start_idx][0] for i in range(len(path.orders)) if (path.orders[i][0] >= intfs[0] and path.orders[i][0] <= intfs[1] and i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
+                ax.plot([i + start_idx for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                        [path.orders[i+start_idx][0] for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
             elif path.ens_id > 1:
-                ax.plot([i + start_idx for i in range(len(path.phasepoints)) if (path.orders[i][0] >= intfs[path.ens_id-2] and path.orders[i][0] <= intfs[path.ens_id] and i >= path.staridx[0] and i <= path.staridx[1])],
-                [path.orders[i+start_idx][0] for i in range(len(path.phasepoints)) if (path.orders[i][0] >= intfs[path.ens_id-2] and path.orders[i][0] <= intfs[path.ens_id] and i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
+                ax.plot([i + start_idx for i in range(len(path.phasepoints)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                [path.orders[i+start_idx][0] for i in range(len(path.phasepoints)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
         # plot the first and last point again to highlight start/end phasepoints
         # it must have the same color as the line for the path
         if path.meta is not None:
@@ -62,6 +62,7 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
             ax.plot(start_idx + len(path.phasepoints) - 1,
                     path.phasepoints[-1][0], "v",
                     color=ax.lines[-1].get_color(), ms = 7)
+            print(path.meta)
             ax.plot(path.orders.index([path.meta[-1]]), path.meta[-1], "o", **kwargs)
         else:
             ax.plot(start_idx, path.phasepoints[0][0], "^",

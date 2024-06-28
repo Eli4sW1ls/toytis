@@ -186,10 +186,12 @@ class Ensemble:
                     self.paths.pop()
 
         # Now we write the data to the path ensemble file
+        if trial.staridx == None:
+            trial.staridx = (0,0)
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
-                              plen, status, gen, ordermin, ordermax, dir)
+                              plen, status, gen, ordermin, ordermax, dir, trial.staridx)
         # and write to the order.txt file
-        self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir)
+        self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir, trial.staridx)
 
     def jump_back(self, n=1):
         """Jump back n cycles in the ensemble.
@@ -244,7 +246,7 @@ class Ensemble:
     #             self.pe2_len += 1
 
     def write_to_pe_file(self, simcycle, cycle_acc, cycle_md, ptype, plen,
-                         status, gen, ordermin, ordermax, dir):
+                         status, gen, ordermin, ordermax, dir, staridx):
         """Format: simcycle, cycle_acc, cycle_md, ptype, plen, status,
         gen, ordermin, ordermax
         chars: 10, 10, 6, 7, 3, 2, 10decimals, 10decimals, 10
@@ -256,11 +258,11 @@ class Ensemble:
             f.write(PATH_FMT.format(
                 simcycle, cycle_acc, cycle_md, ptype[0], ptype[1], ptype[2],
                 plen, status, gen,
-                ordermin[0], ordermax[0], ordermin[1], ordermax[1], 0., 0, dir, 1.) + "\n")
+                ordermin[0], ordermax[0], ordermin[1], ordermax[1], staridx[0], staridx[1], dir, 1.) + "\n")
     
-    def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir):
+    def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir, staridx):
         with open(str(self.id).zfill(3) + "/order.txt", "a") as f:
-            f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}, direction: {'fw' if dir==1 else 'bw'}\n")
+            f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}, direction: {'fw' if dir==1 else 'bw'}, staridx: {staridx}\n")
             f.write("#     Time        Orderp\n")
             for i, ord in enumerate(path.orders):
                 f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1] + "\n").format(i, ord[0]))
@@ -434,8 +436,8 @@ class Ensemble:
         ordermin = min([op[0] for op in path.orders])
         for cross_condition in self.cross_conditions:
             crossed = crossed and \
-                (ordermax >= self.intfs[cross_condition] and \
-                 ordermin <= self.intfs[cross_condition])
+                (ordermax > self.intfs[cross_condition] and \
+                 ordermin < self.intfs[cross_condition])
         return crossed
 
     def check_start_and_end(self, path):
@@ -608,15 +610,15 @@ class Ensemble:
             # For body ensembles, we start at the left interface
             rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
             rand_start = np.random.randint(self.id-1)
-            start = self.intfs["all"][rand_start]*(1 - np.sign(self.intfs["all"][rand_start])*0.001)
+            start = self.intfs["all"][rand_start]- np.sign(self.intfs["all"][rand_start]-0.0001)*0.001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
-            stop = self.intfs["all"][rand_stop]*(1 + np.sign(self.intfs["all"][rand_stop])*0.001)
+            stop = self.intfs["all"][rand_stop]+np.sign(self.intfs["all"][rand_stop]+0.0001)*0.001
         elif self.ens_type == "i*_0star":
             # For body ensembles, we start at the left interface
             rand_stop = np.random.randint(2, len(self.intfs["all"]))
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
-            stop = self.intfs["all"][rand_stop]*(1 + np.sign(self.intfs["all"][rand_stop])*0.001)
+            stop = self.intfs["all"][rand_stop]*(1 + np.sign(self.intfs["all"][rand_stop]+0.0001)*0.001)
         elif self.ens_type == "state_B":
             # For state B ensembles, we start at the left interface
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
@@ -635,24 +637,24 @@ class Ensemble:
         pp1 = N - p1
         if self.ens_type == "i*_0star":
             if rand_stop < len(self.intfs["all"])-1:
-                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]-0.002]))
+                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.002,0)]
         elif self.ens_type == "body_i*":
             if rand_start > 0:
-                p1 += len([ph for ph in phasepoints1 if self.orderparameter.calculate(ph) <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)])
-                phasepoints1 = list(reversed([ph for ph in phasepoints1 if self.orderparameter.calculate(ph) <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1])*0.001)])) + phasepoints1
+                p1 += len([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1]-0.0001)*0.001)])
+                phasepoints1 = [(self.intfs["all"][rand_start+1]+0.002,0)] + list(reversed([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]])) +  phasepoints1
             if rand_stop < len(self.intfs["all"])-1:
-                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph) >= self.intfs["all"][rand_stop-1]*(1 - np.sign(self.intfs["all"][rand_stop-1])*0.001)]))
+                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.002,0)]
         
         orders1 = [self.orderparameter.calculate(ph) for ph in phasepoints1]
         orders2 = [self.orderparameter.calculate(ph) for ph in phasepoints2]
         phasepoints = phasepoints1 + phasepoints2[1:]
         orders = orders1 + orders2[1:]
-        path = Path(phasepoints, orders, self.id, ["LMR", 0, "ACC", None])
+        path = Path(phasepoints, orders, self.id, ["LMR", 0, "ACC", orders1[0][0]])
 
         if self.ens_type == "i*_0star":
-            path.staridx = (1, int(N)+p2-1)
+            path.staridx = (1, int(N)+p2-2)
         else:
-            path.staridx = (int(p1), int(p1 + pp1 + p2))
+            path.staridx = (int(p1+1), int(p1 + pp1 + p2-2))
         # if self.save_pe2:  # Such that we have enough to write to pe2
         #     for i in range(self.pe2_N):
         #         self.paths.append(path)
