@@ -578,9 +578,9 @@ class Ensemble:
             stop = self.intfs["L"]*(1-np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "state_A":
             # For state A ensembles, we start at the right interface
-            start = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
+            start = self.intfs["R"]+0.000001
             mid = self.intfs["R"]*(1 - np.sign(self.intfs["R"])*0.1)
-            stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
+            stop = self.intfs["R"]+0.000001
         elif self.ens_type == "state_A_lambda_min_one":
             # For state A ensembles, we start at the right interface
             start = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
@@ -610,15 +610,15 @@ class Ensemble:
             # For body ensembles, we start at the left interface
             rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
             rand_start = np.random.randint(self.id-1)
-            start = self.intfs["all"][rand_start]- np.sign(self.intfs["all"][rand_start]-0.0001)*0.001
+            start = self.intfs["all"][rand_start]- 0.0001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
-            stop = self.intfs["all"][rand_stop]+np.sign(self.intfs["all"][rand_stop]+0.0001)*0.001
+            stop = self.intfs["all"][rand_stop]+0.0001
         elif self.ens_type == "i*_0star":
             # For body ensembles, we start at the left interface
             rand_stop = np.random.randint(2, len(self.intfs["all"]))
-            start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
+            start = self.intfs["L"]-0.0001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
-            stop = self.intfs["all"][rand_stop]*(1 + np.sign(self.intfs["all"][rand_stop]+0.0001)*0.001)
+            stop = self.intfs["all"][rand_stop]+0.0001
         elif self.ens_type == "state_B":
             # For state B ensembles, we start at the left interface
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
@@ -637,13 +637,13 @@ class Ensemble:
         pp1 = N - p1
         if self.ens_type == "i*_0star":
             if rand_stop < len(self.intfs["all"])-1:
-                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.002,0)]
+                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.001,0)]
         elif self.ens_type == "body_i*":
             if rand_start > 0:
-                p1 += len([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]*(1 + np.sign(self.intfs["all"][rand_start+1]-0.0001)*0.001)])
+                p1 += len([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]]) + 1
                 phasepoints1 = [(self.intfs["all"][rand_start+1]+0.002,0)] + list(reversed([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]])) +  phasepoints1
             if rand_stop < len(self.intfs["all"])-1:
-                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.002,0)]
+                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.001,0)]
         
         orders1 = [self.orderparameter.calculate(ph) for ph in phasepoints1]
         orders2 = [self.orderparameter.calculate(ph) for ph in phasepoints2]
@@ -654,7 +654,7 @@ class Ensemble:
         if self.ens_type == "i*_0star":
             path.staridx = (1, int(N)+p2-2)
         else:
-            path.staridx = (int(p1+1), int(p1 + pp1 + p2-2))
+            path.staridx = (int(p1), int(p1 + pp1 + p2-2))
         # if self.save_pe2:  # Such that we have enough to write to pe2
         #     for i in range(self.pe2_N):
         #         self.paths.append(path)

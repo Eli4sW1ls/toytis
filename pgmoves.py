@@ -50,8 +50,8 @@ def pg_shooting_move(ens, level=0):
     else:
         poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"] and i >= path.staridx[0] and i <= path.staridx[1])]
     n_ph = len(poss_sh)
-    if n_ph == 0:
-        n_ph=0
+    # if n_ph == 0:
+    #     n_ph=0
     sh_id = np.random.choice(poss_sh)
 
     shootpoint = (path.phasepoints[sh_id][0],
@@ -180,9 +180,9 @@ def pg_shooting_move(ens, level=0):
             ext_path = Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
                                 bext_tuple[1] + new_path.orders + fext_tuple[1],
                                 ens.id, [ptype, 0, "ACC", shootpoint_op])
-            if ens.ens_type == "i*_0star" and ext_path.orders[0][0] <= ens.intfs["L"] and ext_path.orders[-1][0] <= ens.intfs["L"]:
-                ptype = "LML"
-                ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
+            # if ens.ens_type == "i*_0star" and ext_path.orders[0][0] <= ens.intfs["L"] and ext_path.orders[-1][0] <= ens.intfs["L"]:
+            #     ptype = "LML"
+            #     ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
             ext_path.staridx = (len(bext_tuple[1])+1, len(bext_tuple[1]) + len(new_path.orders)-2)
             return "ACC", (ext_path, ptype)
         
@@ -247,7 +247,7 @@ def pg_swap_zero(ensembles):
                          [ptype1, 0, ext_status, sh1[0]])
     else:
         new_path1.meta = [ptype1, 0, "ACC", sh1[0]]
-    new_path1.staridx = (1, len(tuple1[1])-2)
+    new_path1.staridx = (1, len(tuple1[1]))
     
     # 2. create the new path for the [0^-] ensemble.
     # Cut the first two phasepoints of the [0^+] path, and propagate the first
@@ -289,7 +289,7 @@ def pg_swap(ensembles, idx):
 
     """
     is_path1, ptype1 = pg_check_path(ensembles[idx+1], ensembles[idx].paths[0])
-    is_path2, ptype2 = pg_check_path(ensembles[idx], ensembles[idx+1].paths[0])
+    is_path2, ptype2 = pg_check_path(ensembles[idx], ensembles[idx+1].paths[0])    
     # plot_paths([ensembles[idx].paths[0]])
     # plot_paths([ensembles[idx+1].paths[0]])
     if is_path1 and is_path2:
@@ -333,12 +333,14 @@ def pg_swap(ensembles, idx):
                                 if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         # distinguish LMR and RML
         elif ensembles[idx+1].paths[0].meta[0][0] == "L": # TODO: verschil bij nieuwe RMR
-            try: idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
+            idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
                 if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            except: 
-                print(ensembles[idx+1].paths[0].phasepoints[ensembles[idx+1].paths[0].staridx[0]])
-                idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
-                if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
+            # try: idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
+            #     if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
+            # except: 
+            #     print(ensembles[idx+1].paths[0].phasepoints[ensembles[idx+1].paths[0].staridx[0]])
+            #     idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
+            #     if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
             idx2r = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], len(ensembles[idx+1].paths[0].phasepoints))
                 if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         else: 
@@ -351,7 +353,7 @@ def pg_swap(ensembles, idx):
 
         # plot_paths([ensembles[idx].paths[0]])
         # plot_paths([ensembles[idx+1].paths[0]])
-        plt.close("all")
+        # plt.close("all")
         return "ACC", (ensembles[idx+1].paths[0], ptype2), (ensembles[idx].paths[0], ptype1)
     else:
         return "NCR", (ensembles[idx+1].paths[0], ptype2), (ensembles[idx].paths[0], ptype1)
@@ -488,11 +490,12 @@ def pg_check_path(ens, path):
     ordermin = (min([op[0] for op in path.orders]), np.argmin([op[0] for op in path.orders]))
     ordermax = (max([op[0] for op in path.orders]), np.argmax([op[0] for op in path.orders]))
     valid = (ordermin[0] < ens.intfs["all"][0] or ordermin[1] > 0) and \
-            (ordermax[0] > ens.intfs["all"][-1] or ordermax[1] < len(path.orders)-1)
+            (ordermax[0] > ens.intfs["all"][-1] or ordermax[1] < len(path.orders)-1) # check if valid "staple" path
 
     if check_position([ordermin[0]], ens.intfs["L"], ens.intfs["R"] if ens.id == 1 else ens.intfs["M"]) == "M":
         ptype = "RMR"
-    elif check_position([ordermax[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M":
+    elif check_position([ordermax[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M":# or \
+        # (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]):
         ptype = "LML"
     elif np.all(np.asarray(path.orders) < [ens.intfs["L"]]) or np.all(np.asarray(path.orders) > [ens.intfs["R"]])\
             or check_position([ordermax[0]], ens.intfs["L"], ens.intfs["R"] if ens.id == 1 else ens.intfs["M"]) == "M"\
