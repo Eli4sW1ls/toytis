@@ -288,75 +288,71 @@ def pg_swap(ensembles, idx):
         Boolean indicating whether the swap move was successful
 
     """
-    is_path1, ptype1 = pg_check_path(ensembles[idx+1], ensembles[idx].paths[0])
-    is_path2, ptype2 = pg_check_path(ensembles[idx], ensembles[idx+1].paths[0])    
-    # plot_paths([ensembles[idx].paths[0]])
-    # plot_paths([ensembles[idx+1].paths[0]])
+    lower_path = ensembles[idx].paths[0]
+    upper_path = ensembles[idx+1].paths[0]
+    is_path1, ptype1 = pg_check_path(ensembles[idx+1], lower_path)
+    is_path2, ptype2 = pg_check_path(ensembles[idx], upper_path)    
+    # plot_paths([lower_path])
+    # plot_paths([upper_path])
     if is_path1 and is_path2:
         # swap i->i+1
-        if ensembles[idx].paths[0].meta[0] == "RMR": # special case with RMR
-            if ensembles[idx].paths[0].staridx[0] == 1:
-                idx1l = next(i for i in range(ensembles[idx].paths[0].staridx[1], -1, -1) if 
-                              (check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-                idx1r = next(i for i in range(ensembles[idx].paths[0].staridx[1], len(ensembles[idx].paths[0].phasepoints)) 
-                                if check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
+        if lower_path.meta[0] == "RMR": # special case with RMR
+            if lower_path.staridx[0] == 1:
+                idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) if 
+                              (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+                idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.phasepoints)) 
+                                if check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
             else:
-                idx1l = next(i for i in range(ensembles[idx].paths[0].staridx[0],-1, -1) if 
-                              (check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-                idx1r = next(i for i in range(ensembles[idx].paths[0].staridx[0], len(ensembles[idx].paths[0].orders)) 
-                                if check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
+                idx1l = next(i for i in range(lower_path.staridx[0],-1, -1) if 
+                              (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+                idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
+                                if check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
         # distinguish LMR and RML
-        elif ensembles[idx].paths[0].meta[0][0] == "L":
-            idx1l = next(i for i in range(ensembles[idx].paths[0].staridx[1], -1, -1) 
-                if (check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-            idx1r = next(i for i in range(ensembles[idx].paths[0].staridx[1], len(ensembles[idx].paths[0].phasepoints))
-                if check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
+        elif lower_path.meta[0][0] == "L":
+            idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) 
+                if (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+            idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.phasepoints))
+                if check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
         else: 
-            idx1l = next(i for i in range(ensembles[idx].paths[0].staridx[0],-1, -1) if 
-                     (check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-            idx1r = next(i for i in range(ensembles[idx].paths[0].staridx[0], len(ensembles[idx].paths[0].phasepoints)) 
-                if (check_position(ensembles[idx].paths[0].phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))-1
-        ensembles[idx].paths[0].staridx = (idx1l, idx1r)
-        ensembles[idx].paths[0].meta[0] = ptype1
+            idx1l = next(i for i in range(lower_path.staridx[0],-1, -1) if 
+                     (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+            idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.phasepoints)) 
+                if (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))-1
+        lower_path.staridx = (idx1l, idx1r)
+        lower_path.meta[0] = ptype1
 
         # swap i+1->i
-        if ensembles[idx+1].paths[0].meta[0] == "LML":  # special case for LML
-            if ensembles[idx+1].paths[0].staridx[0] == 1:
-                idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[1], -1, -1) if 
-                              (check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
-                idx2r = next(i for i in range(ensembles[idx+1].paths[0].staridx[1], len(ensembles[idx+1].paths[0].orders)) 
-                                if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+        if upper_path.meta[0] == "LML":  # special case for LML
+            if upper_path.staridx[0] == 1:
+                idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) if 
+                              (check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
+                idx2r = next(i for i in range(upper_path.staridx[1], len(upper_path.orders)) 
+                                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
             else:
-                idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) if 
-                              (check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
-                idx2r = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], len(ensembles[idx+1].paths[0].orders)) 
-                                if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+                idx2l = next(i for i in range(upper_path.staridx[0], -1, -1) if 
+                              (check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
+                idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders)) 
+                                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         # distinguish LMR and RML
-        elif ensembles[idx+1].paths[0].meta[0][0] == "L": # TODO: verschil bij nieuwe RMR
-            idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
-                if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            # try: idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
-            #     if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            # except: 
-            #     print(ensembles[idx+1].paths[0].phasepoints[ensembles[idx+1].paths[0].staridx[0]])
-            #     idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], -1, -1) 
-            #     if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            idx2r = next(i for i in range(ensembles[idx+1].paths[0].staridx[0], len(ensembles[idx+1].paths[0].phasepoints))
-                if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+        elif upper_path.meta[0][0] == "L": # TODO: verschil bij nieuwe RMR
+            idx2l = next(i for i in range(upper_path.staridx[0], -1, -1) 
+                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
+            idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.phasepoints))
+                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         else: 
-            idx2l = next(i for i in range(ensembles[idx+1].paths[0].staridx[1], -1, -1) 
-                if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            idx2r = next(i for i in range(ensembles[idx+1].paths[0].staridx[1], len(ensembles[idx+1].paths[0].phasepoints)) 
-                if check_position(ensembles[idx+1].paths[0].phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
-        ensembles[idx+1].paths[0].staridx = (idx2l, idx2r)
-        ensembles[idx+1].paths[0].meta[0] = ptype2
+            idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) 
+                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
+            idx2r = next(i for i in range(upper_path.staridx[1], len(upper_path.phasepoints)) 
+                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+        upper_path.staridx = (idx2l, idx2r)
+        upper_path.meta[0] = ptype2
 
-        # plot_paths([ensembles[idx].paths[0]])
-        # plot_paths([ensembles[idx+1].paths[0]])
+        # plot_paths([lower_path])
+        # plot_paths([upper_path])
         # plt.close("all")
-        return "ACC", (ensembles[idx+1].paths[0], ptype2), (ensembles[idx].paths[0], ptype1)
+        return "ACC", (upper_path, ptype2), (lower_path, ptype1)
     else:
-        return "NCR", (ensembles[idx+1].paths[0], ptype2), (ensembles[idx].paths[0], ptype1)
+        return "NCR", (upper_path, ptype2), (lower_path, ptype1)
     
 
 def ext_propagate(ens, ext_pt, reverse, maxlen):

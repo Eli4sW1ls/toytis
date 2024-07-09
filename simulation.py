@@ -333,17 +333,17 @@ class Simulation:
                     self.do_shooting_moves()
                 else:
                     self.do_swap_moves()
-                if self.cycle % 50 == 0 or self.cycle == 1:
-                    ps = []
-                    for i in range(len(self.intfs)):
-                        if self.ensembles[i].ens_type != "state_A":
-                            ps += [self.ensembles[i].last_path]
-                            # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
-                            #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
-                    plot_paths(ps, self.ensembles[i].intfs["all"])
-                            #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-                    print(self.cycle)
-                    plt.close('all')
+                # if self.cycle % 50 == 0 or self.cycle == 1:
+                #     ps = []
+                #     for i in range(len(self.intfs)):
+                #         if self.ensembles[i].ens_type != "state_A":
+                #             ps += [self.ensembles[i].last_path]
+                #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                #     plot_paths(ps, self.ensembles[i].intfs["all"])
+                #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                #     print(self.cycle)
+                #     plt.close('all')
             except KeyboardInterrupt:
                 print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
                 try:

@@ -162,6 +162,8 @@ class Ensemble:
             dir = 1
         else:
             dir = -1
+        if trial.meta is not None:
+            trial.meta[1] = dir
         plen = len(trial.phasepoints)
         self.cycle += 1
         if status == "ACC":
