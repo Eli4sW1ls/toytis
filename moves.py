@@ -3,6 +3,7 @@ import logging
 
 from funcs import check_position
 from path import Path
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -461,7 +462,7 @@ def check_propagation_directions(ens0, ens1):
 
     return allowed, propdir0, propdir1, p0type, p1type
 
-def propagate(ens, sh, reverse, maxlen, ext=False):
+def propagate(ens, sh, reverse, maxlen):
     """Propagate from a phasepoint sh in ensemble ens, until either one of 
     the extremal conditions (ext_cond) is met, or the maximum length of the 
     path (maxlen) is reached.
@@ -504,11 +505,24 @@ def propagate(ens, sh, reverse, maxlen, ext=False):
     else:
         raise ValueError("reverse must be either 1 or -1")
 
+    # fig, ax = plt.subplots()
+    # lines, = ax.plot([],[])
+    # ax.set_autoscaley_on(True)
+    # ax.set_ylim(-0.2, 0.4)
+
     phs, ops = [], []
     run_len = 0
     run_worthy = True
     ph = (sh[0], reverse*sh[1])
     while run_worthy:
+        # if run_len % 10000 == 0:
+        #     print("step: ", run_len)
+        #     lines.set_ydata(ops[0 if len(ops)<150000 else -150000::100])
+        #     lines.set_xdata([i for i in range(len(ops[0 if len(ops)<150000 else -150000::100]))])
+        #     ax.relim()
+        #     ax.autoscale_view()
+        #     fig.canvas.draw()
+        #     fig.canvas.flush_events()
         #logger.debug("ph = %s", ph)
         ph = ens.engine.step(ph)
         op = ens.orderparameter.calculate(ph)
