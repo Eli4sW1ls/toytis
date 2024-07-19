@@ -354,6 +354,107 @@ def pg_swap(ensembles, idx):
     else:
         return "NCR", (upper_path, ptype2), (lower_path, ptype1)
     
+def kick_star(ens):
+    while True:
+        if ens.id == 0:
+            sh = (ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, ens.engine.draw_velocities())
+        elif ens.id == 1:
+            sh = (ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, ens.engine.draw_velocities())
+        else:
+            sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
+        shootpoint_op = ens.orderparameter.calculate(sh)
+        logger.debug("Init from ph {} with op {}".format(
+                sh, shootpoint_op))
+        bw_status, bw_tuple = propagate(ens, sh, -1., ens.max_len-1)
+        # if unsuccessful, return the status and the partially propagated path
+        if bw_status != "ACC": 
+            continue
+        # if successful, we continue propagating forwards
+        fw_status, fw_tuple = propagate(ens, sh, 1.,
+                                        ens.max_len-len(bw_tuple[0]))
+        # if unsuccessful, return the status and the partially propagated path
+        if fw_status != "ACC":
+            continue
+        # If succesful, the new path should satisfy the crossing conditions.
+        # logger.debug("Time origin of new path: {}".format(len(bw_tuple[0])-sh_id))
+        ptype = ens.get_ptype(Path(bw_tuple[0] + [sh] + fw_tuple[0],
+                        bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                        ens.id))
+        new_path = Path(bw_tuple[0] + [sh] + fw_tuple[0],
+                        bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
+                        ens.id, [ptype, 0, shootpoint_op])
+        # if the ensemble is a primed PPTIS ensemble, we have to check whether an 
+        # illegal pathtype has occurred. If so, we reject the move with flag 'ILL'. 
+        if ptype in ens.illegal_pathtypes:
+            continue
+        # We have to check whether the new path satisfies the crossing conditions.
+        # TODO: all the above can be done in 'check_path' method of Ensemble, which 
+        # should be rebuilt for this purpose. 
+        if not ens.check_cross(new_path):
+            continue
+        if ptype == "RMR" or ptype == "LML":
+            prop_idx = np.random.choice([0, -1])
+            rev = -np.sign(prop_idx+0.5)
+            prop_point = new_path.phasepoints[prop_idx]
+            # np.random.seed(0)
+            ext_status, ext_tuple = ext_propagate(ens, prop_point, 
+                                                rev, ens.max_len-len(new_path.orders))
+            # np.random.seed(0)
+            # ext_status2, ext_tuple2 = propagate_old(ens, prop_point, 
+            #                                     rev, ens.max_len-num_shootpoints(new_path.orders, ens.intfs["L"], ens.intfs["R"]), True)
+            # assert ext_status == ext_status2
+            # assert ext_tuple == ext_tuple2
+            if rev == -1:
+                ext_path = Path(ext_tuple[0] + new_path.phasepoints,
+                                ext_tuple[1] + new_path.orders,
+                                ens.id, [ptype, 1 if ptype=="LML" else -1, shootpoint_op])
+                li = len(ext_tuple[1])+1; ri = len(ext_path.orders)-2
+            else:
+                ext_path = Path(new_path.phasepoints + ext_tuple[0],
+                                new_path.orders + ext_tuple[1],
+                                ens.id, [ptype, -1 if ptype=="LML" else 1, shootpoint_op])
+                li = 1; ri = len(new_path.orders)-2
+            if ext_status != "ACC":
+                continue
+            else:
+                ext_path.staridx = (int(li), int(ri))
+                ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
+                break
+        else:
+            # np.random.seed(0)
+            bext_status, bext_tuple = ext_propagate(ens, new_path.phasepoints[0], -1., ens.max_len-len(new_path.orders))
+            # np.random.seed(0)
+            # bext_status2, bext_tuple2 = propagate_old(ens, new_path.phasepoints[0], -1., ens.max_len-len(new_path.orders), True)
+            # assert bext_status == bext_status2
+            # assert bext_tuple == bext_tuple2
+            if bext_status != "ACC": 
+                continue
+            # np.random.seed(0)
+            fext_status, fext_tuple = ext_propagate(ens, new_path.phasepoints[-1], 1.,
+                                    ens.max_len-len(bext_tuple[0])-len(new_path.orders))
+            # np.random.seed(0)
+            # fext_status2, fext_tuple2 = propagate_old(ens, new_path.phasepoints[-1], 1.,
+            #                         ens.max_len-len(bext_tuple[0])-len(new_path.orders), True)
+            # assert fext_status == fext_status2
+            # assert fext_tuple == fext_tuple2
+            if fext_status != "ACC":
+                continue
+            else:
+                logger.debug("Extension performed successfully.")
+                ext_path = Path(bext_tuple[0] + new_path.phasepoints + fext_tuple[0],
+                                    bext_tuple[1] + new_path.orders + fext_tuple[1],
+                                    ens.id, [ptype, 0, "ACC", shootpoint_op])
+                # if ens.ens_type == "i*_0star" and ext_path.orders[0][0] <= ens.intfs["L"] and ext_path.orders[-1][0] <= ens.intfs["L"]:
+                #     ptype = "LML"
+                #     ext_path.meta = [ptype, 0, "ACC", shootpoint_op]
+                ext_path.staridx = (len(bext_tuple[1])+1, len(bext_tuple[1]) + len(new_path.orders)-2)
+                break
+    ens.paths.append(ext_path)
+    ens.last_path = ext_path
+    ens.update_data("ACC", (ext_path, ptype), "ld", 0)
+
+    return
+
 
 def ext_propagate(ens, ext_pt, reverse, maxlen):
     """Extend an [i*] path from a phasepoint sh in ensemble ens, until 

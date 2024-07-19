@@ -41,7 +41,7 @@ def shooting_move(ens, level=0):
     """
     path = ens.paths[level]  # last accepted path
     pathlen = len(path.phasepoints)
-    shoot_maxlen = min(int((pathlen-2)/np.random.random()) + 2, ens.max_len)
+    shoot_maxlen = min((pathlen-2)/np.random.random() + 2, ens.max_len)
     sh_id = np.random.randint(1,pathlen-1)
     shootpoint = (path.phasepoints[sh_id][0],
                   ens.engine.draw_velocities())
@@ -320,44 +320,7 @@ def repptis_swap(ensembles, idx):
     else:
         logger.debug("New paths are acceptable.")
         return "ACC", new_path_0, new_path_1
-    
 
-def kick_retis(ens):
-
-    while True:
-        if ens.id == 0:
-            sh = (ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, ens.engine.draw_velocities())
-        elif ens.id == 1:
-            sh = (ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, ens.engine.draw_velocities())
-        else:
-            sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
-        shootpoint_op = ens.orderparameter.calculate(sh)
-        logger.debug("Init from ph {} with op {}".format(
-                sh, shootpoint_op))
-        bw_status, bw_tuple = propagate(ens, sh, -1., ens.max_len-1)
-        if bw_status != "ACC":
-            continue
-        # if successful, we continue propagating forwards
-        fw_status, fw_tuple = propagate(ens, sh, 1.,
-                                        ens.max_len-len(bw_tuple[0]))
-        # if unsuccessful, return the status and the partially propagated path
-        if fw_status != "ACC":
-            continue
-        # If succesful, the new path should satisfy the crossing conditions.
-        # logger.debug("Time origin of new path: {}".format(len(bw_tuple[0])-sh_id))
-        new_path = Path(bw_tuple[0] + [sh] + fw_tuple[0],
-                        bw_tuple[1] + [shootpoint_op] + fw_tuple[1],
-                        ens.id)
-        if not ens.check_cross(new_path):
-            continue
-        else:
-            break
-    ens.paths.append(new_path)
-    ens.last_path = new_path
-    ens.update_data("ACC", new_path, "ld", 0)
-
-    return
-        
 def cut_LR_to_M(ens, reverse, level=0, M=None):
     """A simplified version of cut_overlap_phasepoints. This function does the 
     same thing: cutting from the first (last) phasepoint until the M interface

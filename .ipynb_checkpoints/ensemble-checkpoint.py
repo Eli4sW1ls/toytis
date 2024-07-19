@@ -6,8 +6,6 @@ from engine import LangevinEngine
 from order import OrderParameter
 import pickle as pkl
 from funcs import remove_lines_from_file
-from moves import kick_retis
-from pgmoves import kick_star
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -560,7 +558,7 @@ class Ensemble:
         middlepos = "M" if self.check_cross(path) else "*"
         return startpos + middlepos + endpos
 
-    def create_initial_path(self, N = 31):
+    def create_initial_path(self, N = 250):
         """Create an initial path for the ensemble.
         We will create a path that starts at one of the start_condition intfs,
         and ends in one of the end_condition intfs. We check whether there is a
@@ -575,19 +573,13 @@ class Ensemble:
         logger.info("Creating initial path for ensemble {}".format(self.name))
         if self.ens_type == "body_TIS":
             # For body ensembles, we start at the left interface
-            kick_retis(self)
-            return
-            N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["L"]*(1-np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["M"]*(1+np.sign(self.intfs["M"])*0.001)
             stop = self.intfs["L"]*(1-np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "state_A":
             # For state A ensembles, we start at the right interface
-            kick_retis(self)
-            return
-            N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["R"]+0.000001
-            mid = self.intfs["R"]*(1 - np.sign(self.intfs["R"])*0.15)
+            mid = self.intfs["R"]*(1 - np.sign(self.intfs["R"])*0.1)
             stop = self.intfs["R"]+0.000001
         elif self.ens_type == "state_A_lambda_min_one":
             # For state A ensembles, we start at the right interface
@@ -602,15 +594,12 @@ class Ensemble:
         elif self.ens_type == "PPTIS_0plusmin_primed":
             # For body ensembles, we start at the left interface
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
-            mid = (self.intfs["R"] + self.intfs["L"]) / 2 
+            mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "RETIS_0plus":
             # For body ensembles, we start at the left interface
-            kick_retis(self)
-            return
-            N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
-            mid = (self.intfs["L"] + self.intfs["R"]) / 2 - np.random.rand()/6
+            mid = (self.intfs["L"] + self.intfs["R"]) / 2
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "PPTIS_Nplusmin_primed":
             # For body ensembles, we start at the right interface
@@ -619,8 +608,6 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_i*":
             # For body ensembles, we start at the left interface
-            kick_star(self)
-            return
             rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
             rand_start = np.random.randint(self.id-1)
             start = self.intfs["all"][rand_start]- 0.0001
@@ -628,8 +615,6 @@ class Ensemble:
             stop = self.intfs["all"][rand_stop]+0.0001
         elif self.ens_type == "i*_0star":
             # For body ensembles, we start at the left interface
-            kick_star(self)
-            return
             rand_stop = np.random.randint(2, len(self.intfs["all"]))
             start = self.intfs["L"]-0.0001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
