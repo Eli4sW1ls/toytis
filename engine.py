@@ -5,6 +5,8 @@ from cos_bump_series import CosBumpSeriesWalls
 from flat_walls import FlatWall1D
 from cos_dip_metastables import CosDipMetastableWalls
 
+from mazepotential_mixed import Maze2D_color
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -174,10 +176,11 @@ class ndLangevinEngine:
         """            
         self.settings = settings
         self.dt = self.settings["dt"]
+        self.high_friction = settings.get("high_friction", False)
         self.T = self.settings["temperature"]
         self.gamma = self.settings["friction"]
-        #self.potential = Maze2D_color(mazefig="maze.png")
-        self.potential = RectangularGridWithBarrierPotential(3*0.1, 9*0.1, 2000, (1.5*0.1, 4.5*0.1), -3.5*3/10, 0.2, 2*.1)
+        self.potential = Maze2D_color(mazefig="maze.png")
+        # self.potential = RectangularGridWithBarrierPotential(3*0.1, 9*0.1, 2000, (1.5*0.1, 4.5*0.1), -3.5*3/10, 0.2, 2*.1)
         #self.potential = RectangularGridWithRuggedPotential()
         self.phasepoint = None
         self.mass = self.settings["mass"]
@@ -193,6 +196,7 @@ class ndLangevinEngine:
         # self.one_minus_gammadt = 1.0 - self.gammadt
         self.equipartition_sigma = np.sqrt(self.kT / self.mass)
         self.mdsteps = 0
+
         if self.high_friction:
             self.sigma = np.sqrt(2.0 * self.dt / (self.beta * self.mass * self.gamma))
             self.bddt = self.dt / (self.mass * self.gamma)
@@ -241,13 +245,13 @@ class ndLangevinEngine:
         # Adapted from PyRETIS implementation, EW, May 2024
         if self.high_friction:
             rands = np.random.normal(loc = 0.0, scale=self.sigma, size=self.dim)
-            x_new = x + self.bddt * force + rands[0]
-            v_new = rands[0]
+            x_new = x + self.bddt * force + rands
+            v_new = rands
             return (x_new, v_new)
         else:
             randxv = np.random.multivariate_normal(self.mean, self.cov, self.dim)
-            x_rand = randxv[0]
-            v_rand = randxv[1]
+            x_rand = randxv[:,0]
+            v_rand = randxv[:,1]
             x_new = x + self.a1 * v + self.a2 * force + x_rand
             
             v2 = self.c0 * v + self.b1 * force + v_rand

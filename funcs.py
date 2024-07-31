@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
-def check_position(ph, L, R):
+import numpy as np
+def check_position(op, L, R):
     """ Checks whether a phasepoint is:
     - in the interval [L, R] : M
     - left of L              : L
@@ -21,7 +22,7 @@ def check_position(ph, L, R):
         String representing the condition of the phasepoint
 
     """
-    return "M" if L <= ph[0] <= R else "L" if ph[0] < L else "R"
+    return "M" if L <= op[0] <= R else "L" if op[0] < L else "R"        # Assume that 1st index of orderparameter list is the determining 1D order parameter
 
 def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
     """ Plots the paths in the list paths, with optional interfaces intfs.
@@ -43,37 +44,69 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
             start_ids.append(start_ids[-1] + len(path.phasepoints))
     assert len(start_ids) == len(paths)
     if ax is None:
-        fig, ax = plt.subplots()
+        ax = plt.figure().add_subplot(projection='3d')
     for path, start_idx in zip(paths, start_ids):
-        ax.plot([i + start_idx for i in range(len(path.phasepoints))],
-                [ph[0] for ph in path.phasepoints], "-x", **kwargs)
-        if path.staridx is not None:
-            if path.ens_id == 1:
-                ax.plot([i + start_idx for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])],
-                        [path.orders[i+start_idx][0] for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
-            elif path.ens_id > 1:
-                ax.plot([i + start_idx for i in range(len(path.phasepoints)) if (i >= path.staridx[0] and i <= path.staridx[1])],
-                [path.orders[i+start_idx][0] for i in range(len(path.phasepoints)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
-        # plot the first and last point again to highlight start/end phasepoints
-        # it must have the same color as the line for the path
-        if path.meta is not None:
-            ax.plot(start_idx, path.phasepoints[0][0], "^",
-                    color=ax.lines[-1].get_color(), ms = 7, label=str((path.meta[:2], path.ens_id)))
-            ax.plot(start_idx + len(path.phasepoints) - 1,
-                    path.phasepoints[-1][0], "v",
-                    color=ax.lines[-1].get_color(), ms = 7)
-            print(path.meta)
-            ax.plot(path.orders.index([path.meta[-1]]), path.meta[-1], "o", **kwargs)
+        if len(path.orders[0]) > 1:
+            ax.plot([path.orders[i + start_idx][1] for i in range(len(path.orders))], [i + start_idx for i in range(len(path.orders))],
+                    [op[0] for op in path.orders], "-x", **kwargs)
+            if path.staridx is not None:
+                if path.ens_id == 1:
+                    ax.plot([path.orders[i + start_idx][1] for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                            [i + start_idx for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                            [path.orders[i+start_idx][0] for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
+                elif path.ens_id > 1:
+                    ax.plot([path.orders[i + start_idx][1] for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                            [i + start_idx for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                            [path.orders[i+start_idx][0] for i in range(len(path.phasepoints)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
+            # plot the first and last point again to highlight start/end phasepoints
+            # it must have the same color as the line for the path
+            if path.meta is not None:
+                ax.plot(path.orders[0][1], 0, path.orders[0][0], "^",
+                        color=ax.lines[-1].get_color(), ms = 7, label=str((path.meta[:2], path.ens_id)))
+                ax.plot(path.orders[len(path.orders) - 1][1], len(path.orders) - 1,
+                        path.orders[-1][0], "v",
+                        color=ax.lines[-1].get_color(), ms = 7)
+                print(path.meta)
+                ax.plot(path.meta[-1][1], path.orders.index(path.meta[-1]), path.meta[-1][0], "o", **kwargs)
+            else:
+                ax.plot(path.orders[0][1], 0, path.orders[0][0], "^",
+                        color=ax.lines[-1].get_color(), ms = 7)
+                ax.plot(path.orders[-1][1], len(path.orders) - 1,
+                        path.orders[-1][0], "v",
+                        color=ax.lines[-1].get_color(), ms = 7)
         else:
-            ax.plot(start_idx, path.phasepoints[0][0], "^",
-                    color=ax.lines[-1].get_color(), ms = 7)
-            ax.plot(start_idx + len(path.phasepoints) - 1,
-                    path.phasepoints[-1][0], "v",
-                    color=ax.lines[-1].get_color(), ms = 7)
+            ax.plot([i + start_idx for i in range(len(path.orders))],
+                    [ph[0] for ph in path.orders], "-x", **kwargs)
+            if path.staridx is not None:
+                if path.ens_id == 1:
+                    ax.plot([i + start_idx for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                            [path.orders[i+start_idx][0] for i in range(len(path.orders)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
+                elif path.ens_id > 1:
+                    ax.plot([i + start_idx for i in range(len(path.phasepoints)) if (i >= path.staridx[0] and i <= path.staridx[1])],
+                    [path.orders[i+start_idx][0] for i in range(len(path.phasepoints)) if (i >= path.staridx[0] and i <= path.staridx[1])], ".-", **kwargs)
+            # plot the first and last point again to highlight start/end phasepoints
+            # it must have the same color as the line for the path
+            if path.meta is not None:
+                ax.plot(start_idx, path.orders[0][0], "^",
+                        color=ax.lines[-1].get_color(), ms = 7, label=str((path.meta[:2], path.ens_id)))
+                ax.plot(start_idx + len(path.orders) - 1,
+                        path.orders[-1][0], "v",
+                        color=ax.lines[-1].get_color(), ms = 7)
+                print(path.meta)
+                ax.plot(path.orders.index(path.meta[-1]), path.meta[-1][0], "o", **kwargs)
+            else:
+                ax.plot(start_idx, path.orders[0][0], "^",
+                        color=ax.lines[-1].get_color(), ms = 7)
+                ax.plot(start_idx + len(path.orders) - 1,
+                        path.orders[-1][0], "v",
+                        color=ax.lines[-1].get_color(), ms = 7)
     ax.legend()
     if intfs is not None:
         for intf in intfs:
-            ax.axhline(intf, color="k", ls="--", lw=.5)
+            # ax.axhline(intf, color="k", ls="--", lw=.5)
+            xx, yy = np.meshgrid(range(2,10), range(max([len(path.orders) for path in paths])))
+            ax.plot_surface(np.asarray(xx)/10, np.asarray(yy), intf*np.ones_like(xx), color='black', alpha=0.15)
+    plt.tight_layout()
     if ax is None:
         plt.show(block=True)
     

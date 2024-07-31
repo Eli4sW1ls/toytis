@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import matplotlib.pyplot as plt
 
-from funcs import check_position, plot_paths
+from funcs import plot_paths, check_position
 from path import Path
 from moves import propagate, cut_extremal_phasepoints
 from order import OrderParameter
@@ -50,8 +50,8 @@ def pg_shooting_move(ens, level=0):
     else:
         poss_sh = [i for i in range(pathlen) if (path.orders[i][0] >= ens.intfs["L"] and path.orders[i][0] <= ens.intfs["R"] and i >= path.staridx[0] and i <= path.staridx[1])]
     n_ph = len(poss_sh)
-    # if n_ph == 0:
-    #     n_ph=0
+    if n_ph == 0:
+        n_ph=0
     sh_id = np.random.choice(poss_sh)
 
     shootpoint = (path.phasepoints[sh_id][0],
@@ -62,7 +62,7 @@ def pg_shooting_move(ens, level=0):
     # lead to the recalculated phasepoint shifting position w.r.t. an interface,
     # resulting in all sorts of nasty problems.
     # shootpoint_op = ens.orderparameter.calculate(shootpoint)
-    shootpoint_op = path.orders[sh_id]
+    shootpoint_op = path.orders[sh_id]      # = list with 1D op at index 0 and orthogonal op at other indices
     logger.debug("Shooting from ph {} (idx: {}) with op {}".format(
         shootpoint, sh_id, shootpoint_op))
     # We now start propagating the shootpoint backwards first, because often
@@ -299,25 +299,25 @@ def pg_swap(ensembles, idx):
         if lower_path.meta[0] == "RMR": # special case with RMR
             if lower_path.staridx[0] == 1:
                 idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) if 
-                              (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-                idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.phasepoints)) 
-                                if check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
+                              (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+                idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.orders)) 
+                                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
             else:
                 idx1l = next(i for i in range(lower_path.staridx[0],-1, -1) if 
-                              (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+                              (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
                 idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
-                                if check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
+                                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
         # distinguish LMR and RML
         elif lower_path.meta[0][0] == "L":
             idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) 
-                if (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-            idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.phasepoints))
-                if check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
+                if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+            idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.orders))
+                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
         else: 
             idx1l = next(i for i in range(lower_path.staridx[0],-1, -1) if 
-                     (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-            idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.phasepoints)) 
-                if (check_position(lower_path.phasepoints[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))-1
+                     (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+            idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
+                if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))-1
         lower_path.staridx = (idx1l, idx1r)
         lower_path.meta[0] = ptype1
 
@@ -325,25 +325,25 @@ def pg_swap(ensembles, idx):
         if upper_path.meta[0] == "LML":  # special case for LML
             if upper_path.staridx[0] == 1:
                 idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) if 
-                              (check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
+                              (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
                 idx2r = next(i for i in range(upper_path.staridx[1], len(upper_path.orders)) 
-                                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+                                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
             else:
                 idx2l = next(i for i in range(upper_path.staridx[0], -1, -1) if 
-                              (check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
+                              (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
                 idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders)) 
-                                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+                                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         # distinguish LMR and RML
         elif upper_path.meta[0][0] == "L": # TODO: verschil bij nieuwe RMR
             idx2l = next(i for i in range(upper_path.staridx[0], -1, -1) 
-                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.phasepoints))
-                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
+            idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders))
+                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         else: 
             idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) 
-                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            idx2r = next(i for i in range(upper_path.staridx[1], len(upper_path.phasepoints)) 
-                if check_position(upper_path.phasepoints[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
+                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
+            idx2r = next(i for i in range(upper_path.staridx[1], len(upper_path.orders)) 
+                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         upper_path.staridx = (idx2l, idx2r)
         upper_path.meta[0] = ptype2
 
@@ -356,12 +356,20 @@ def pg_swap(ensembles, idx):
     
 def kick_star(ens):
     while True:
-        if ens.id == 0:
-            sh = (ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, ens.engine.draw_velocities())
-        elif ens.id == 1:
-            sh = (ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, ens.engine.draw_velocities())
-        else:
-            sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
+        if ens.settings["dim"] == 1:
+            if ens.id == 0:
+                sh = (ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, ens.engine.draw_velocities())
+            elif ens.id == 1:
+                sh = (ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, ens.engine.draw_velocities())
+            else:
+                sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
+        elif ens.settings["dim"] > 1:
+            if ens.id == 0:
+                sh = (np.asarray([0.553187488, ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), ens.engine.draw_velocities())
+            elif ens.id == 1:
+                sh = (np.asarray([0.553187488, ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001]), ens.engine.draw_velocities())
+            else:
+                sh = (np.asarray([0.553187488, ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001]), ens.engine.draw_velocities())
         shootpoint_op = ens.orderparameter.calculate(sh)
         logger.debug("Init from ph {} with op {}".format(
                 sh, shootpoint_op))
@@ -496,12 +504,13 @@ def ext_propagate(ens, ext_pt, reverse, maxlen):
     else:
         raise ValueError("reverse must be either 1 or -1")
 
+    ext_op = ens.orderparameter.calculate(ext_pt)
     phs, ops = [], []
     run_len = 0
     run_worthy = True
     ph = (ext_pt[0], reverse*ext_pt[1])
-    pos_star = check_position(ext_pt, ens.intfs['L'], ens.intfs['R'])
-    AB_pos = check_position(ext_pt, ens.intfs['all'][0], ens.intfs['all'][-1])
+    pos_star = check_position(ext_op, ens.intfs['L'], ens.intfs['R'])
+    AB_pos = check_position(ext_op, ens.intfs['all'][0], ens.intfs['all'][-1])
     if AB_pos != "M":
         run_worthy = False
         msg = f"Path crossed into {'A' if AB_pos == 'L' else 'B'}, which terminates this [i*] path."
@@ -548,8 +557,8 @@ def turn_detected(ens, pos, ops):
     intfs = ens.intfs['all']
     lr = -1 if pos == "L" else (1 if pos == "R" else None)
     # extr_op = lr*max(lr*ops_)
-    extr_op = max(ops)[0] if lr==1 else min(ops)[0]
-    elig_intfs = [int for int in intfs if lr*int <= lr*extr_op]
+    extr_op = max(ops) if lr==1 else min(ops)
+    elig_intfs = [int for int in intfs if lr*int <= lr*extr_op[0]]
     # extr_idx = intfs.index(elig_intfs[np.abs(elig_intfs - extr_op).argmin()])
     # cond_intf = elig_intfs[np.abs(elig_intfs - extr_op).argmin()-lr]
     cond_intf = elig_intfs[1 if lr==-1 else -2]
@@ -559,7 +568,7 @@ def turn_detected(ens, pos, ops):
         return False
 
     # extr_intf = intfs[extr_idx]
-    ops_elig = np.array(ops[ops.index([extr_op]):])
+    ops_elig = np.array([op[0] for op in ops[ops.index(extr_op):]])
 
     # return len(lr*ops_[ops.index(extr_op):][lr*ops_[ops.index(extr_op):] < lr*np.asarray(intfs)[extr_idx-lr]]) > 0
     # return len([op for op in ops_elig if lr*op < lr*extr_intf]) > 0

@@ -323,14 +323,21 @@ def repptis_swap(ensembles, idx):
     
 
 def kick_retis(ens):
-
     while True:
-        if ens.id == 0:
-            sh = (ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, ens.engine.draw_velocities())
-        elif ens.id == 1:
-            sh = (ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, ens.engine.draw_velocities())
-        else:
-            sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
+        if ens.settings["dim"] == 1:
+            if ens.id == 0:
+                sh = (ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, ens.engine.draw_velocities())
+            elif ens.id == 1:
+                sh = (ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, ens.engine.draw_velocities())
+            else:
+                sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
+        elif ens.settings["dim"] > 1:
+            if ens.id == 0:
+                sh = (np.asarray([0.553187488, ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), ens.engine.draw_velocities())
+            elif ens.id == 1:
+                sh = (np.asarray([0.553187488, ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001]), ens.engine.draw_velocities())
+            else:
+                sh = (np.asarray([0.553187488, ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001]), ens.engine.draw_velocities())
         shootpoint_op = ens.orderparameter.calculate(sh)
         logger.debug("Init from ph {} with op {}".format(
                 sh, shootpoint_op))
