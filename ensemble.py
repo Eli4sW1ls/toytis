@@ -266,11 +266,17 @@ class Ensemble:
                 ordermin[0], ordermax[0], ordermin[1], ordermax[1], staridx[0], staridx[1], dir, 1.) + "\n")
     
     def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir, staridx):
+        dim = len(path.orders[0])
         with open(str(self.id).zfill(3) + "/order.txt", "a") as f:
             f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}, direction: {'fw' if dir==1 else 'bw'}, staridx: {staridx}\n")
-            f.write("#     Time        Orderp\n")
+            f.write("#     Time" + "        Orderp")
+            for j in range(1,dim):
+                f.write(f"        Orderp{j}" + "\n")
             for i, ord in enumerate(path.orders):
-                f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1] + "\n").format(i, ord[0]))
+                f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1]).format(i, ord[0]))
+                for j in range(1,dim):
+                    f.write(("  " + ORDER_FMT[1]).format(ord[j]))
+                f.write("\n")
 
 
     def set_conditions(self):
@@ -671,7 +677,7 @@ class Ensemble:
         # We set the velocity of each point to zero.
         if self.settings["dim"] > 1:
             # maze_entry = 0.353187488
-            maze_entry = 0.433187488
+            maze_entry = 0.64
             phasepoints1 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
             last_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_stop-1]-0.001]), np.zeros(self.settings["dim"]))

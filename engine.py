@@ -1,11 +1,11 @@
 import numpy as np
 import logging
 from potential import Potential
-from cos_bump_series import CosBumpSeriesWalls
-from flat_walls import FlatWall1D
-from cos_dip_metastables import CosDipMetastableWalls
+from potentials.cos_bump_series import CosBumpSeriesWalls
+from potentials.flat_walls import FlatWall1D
+from potentials.cos_dip_metastables import CosDipMetastableWalls
 
-from mazepotential_mixed import Maze2D_color
+from potentials.mazepotential_mixed import Maze2D_color
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
