@@ -60,4 +60,5 @@ class OrderX:
         order : list of floats
             The order parameter for the phasepoint.
         """
+        # return [ph[0][1], ph[0][0]]
         return [ph[0][1], ph[0][0]]

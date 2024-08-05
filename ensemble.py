@@ -681,7 +681,7 @@ class Ensemble:
             phasepoints1 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
             last_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_stop-1]-0.001]), np.zeros(self.settings["dim"]))
-            first_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_start+1]+0.002]), np.zeros(self.settings["dim"]))
+            first_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_start+1]+0.002 if self.ens_type != "i*_0star" else start-0.001]), np.zeros(self.settings["dim"]))
         else:
             phasepoints1 = [(i,0.) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(i,0.) for i in np.linspace(mid, stop, N)]
