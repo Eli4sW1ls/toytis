@@ -126,11 +126,17 @@ class Ensemble:
         """ Sets the engine of the ensemble.
 
         """
-        self.engine = ndLangevinEngine(self.settings)
+        if self.settings["dim"] > 1:
+            self.engine = ndLangevinEngine(self.settings)
+        else:
+            self.engine = LangevinEngine(self.settings)
 
     def set_order_parameter(self):
         # self.orderparameter = OrderParameter(self.settings)
-        self.orderparameter = OrderX(self.settings)
+        if self.settings["dim"] > 1:
+            self.orderparameter = OrderX(self.settings)
+        else:
+            self.orderparameter = OrderParameter(self.settings)
 
     def update_data(self, status, trial, gen, simcycle, update_paths=True):
         """Updates the data of the path ensemble after a move has been
@@ -271,7 +277,8 @@ class Ensemble:
             f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}, direction: {'fw' if dir==1 else 'bw'}, staridx: {staridx}\n")
             f.write("#     Time" + "        Orderp")
             for j in range(1,dim):
-                f.write(f"        Orderp{j}" + "\n")
+                f.write(f"        Orderp{j}")
+            f.write("\n")
             for i, ord in enumerate(path.orders):
                 f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1]).format(i, ord[0]))
                 for j in range(1,dim):
@@ -628,11 +635,15 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_PPTIS":
             # For body ensembles, we start at the left interface
+            kick_retis(self)
+            return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["M"]
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "PPTIS_0plusmin_primed":
             # For body ensembles, we start at the left interface
+            kick_retis(self)
+            return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2 
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
@@ -651,8 +662,8 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_i*":
             # For body ensembles, we start at the left interface
-            # kick_star(self)
-            # return
+            kick_star(self)
+            return
             rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
             rand_start = np.random.randint(self.id-1)
             start = self.intfs["all"][rand_start]- 0.0001

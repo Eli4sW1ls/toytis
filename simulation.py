@@ -334,23 +334,23 @@ class Simulation:
                     self.do_shooting_moves()
                 else:
                     self.do_swap_moves()
-                if self.cycle % 50 == 0 or self.cycle == 1:
-                    ps = []
-                    # for i in range(self.settings["max_paths"]):
-                    #     ps += [self.ensembles[1].paths[min(len(self.ensembles[1].paths)-1,i)]]
-                    for i in range(len(self.intfs)):
-                        if self.ensembles[i].ens_type != "state_A":
-                            # ps += [self.ensembles[i].last_path]
-                            ps += [self.ensembles[i].paths[np.argmax([max([op[0] for op in self.ensembles[i].paths[j].orders]) for j in range(len(self.ensembles[i].paths))])]]
-                            # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
-                            #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
-                    plot_paths(ps, self.intfs)
-                            #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-                    print(self.cycle)
-                    plt.close()
-                if self.cycle == 1:
-                    p = self.ensembles[0].engine.potential
-                    p.plot_pot(self.intfs)
+                # if self.cycle % 50 == 0 or self.cycle == 1:
+                #     ps = []
+                #     # for i in range(self.settings["max_paths"]):
+                #     #     ps += [self.ensembles[1].paths[min(len(self.ensembles[1].paths)-1,i)]]
+                #     for i in range(len(self.intfs)):
+                #         if self.ensembles[i].ens_type != "state_A":
+                #             # ps += [self.ensembles[i].last_path]
+                #             ps += [self.ensembles[i].paths[np.argmax([max([op[0] for op in self.ensembles[i].paths[j].orders]) for j in range(len(self.ensembles[i].paths))])]]
+                #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                #     plot_paths(ps, self.intfs)
+                #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                #     print(self.cycle)
+                #     plt.close()
+                # if self.cycle == 1:
+                #     p = self.ensembles[0].engine.potential
+                #     p.plot_pot(self.intfs)
             except KeyboardInterrupt:
                 print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
                 try:

@@ -44,7 +44,8 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
             start_ids.append(start_ids[-1] + len(path.phasepoints))
     assert len(start_ids) == len(paths)
     if ax is None:
-        ax = plt.figure().add_subplot(projection='3d')
+        ax = plt.figure().add_subplot()
+        # ax = plt.figure().add_subplot(projection='3d')
     for path, start_idx in zip(paths, start_ids):
         if len(path.orders[0]) > 1:
             ax.plot([path.orders[i + start_idx][1] for i in range(len(path.orders))], [i + start_idx for i in range(len(path.orders))],
@@ -74,6 +75,11 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
                 ax.plot(path.orders[-1][1], len(path.orders) - 1,
                         path.orders[-1][0], "v",
                         color=ax.lines[-1].get_color(), ms = 7)
+                if intfs is not None:
+                    for intf in intfs:
+                        # ax.axhline(intf, color="k", ls="--", lw=.5)
+                        xx, yy = np.meshgrid(range(2,10), range(max([len(path.orders) for path in paths])))
+                        ax.plot_surface(np.asarray(xx)/10, np.asarray(yy), intf*np.ones_like(xx), color='black', alpha=0.15)
         else:
             ax.plot([i + start_idx for i in range(len(path.orders))],
                     [ph[0] for ph in path.orders], "-x", **kwargs)
@@ -100,12 +106,10 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
                 ax.plot(start_idx + len(path.orders) - 1,
                         path.orders[-1][0], "v",
                         color=ax.lines[-1].get_color(), ms = 7)
+                if intfs is not None:
+                    for intf in intfs:
+                        ax.axhline(intf, color="k", ls="--", lw=.5)
     ax.legend()
-    if intfs is not None:
-        for intf in intfs:
-            # ax.axhline(intf, color="k", ls="--", lw=.5)
-            xx, yy = np.meshgrid(range(2,10), range(max([len(path.orders) for path in paths])))
-            ax.plot_surface(np.asarray(xx)/10, np.asarray(yy), intf*np.ones_like(xx), color='black', alpha=0.15)
     plt.tight_layout()
     if ax is None:
         plt.show(block=True)

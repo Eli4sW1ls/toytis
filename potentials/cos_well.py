@@ -20,7 +20,7 @@ class CosWellWalls(PotentialFunction):
         # deltaf -- height of bumps is deltaf, in units kBT
         # 
         self.params = {'wall_dx': 0.1, 'k': 100., 'bleft': -0.25, 'bright': 0.25 ,'deltaf': 1.2,
-                        'height': 0.15, 'width': 0.05, 'db': 0}
+                        'height': 0.15, 'width': 0.1, 'db': 0}
 
     def potential(self, ph):
         x = ph[0]  # this is array, assume 1D (x)
@@ -36,7 +36,7 @@ class CosWellWalls(PotentialFunction):
         assert bleft < bright
         L = bright - bleft     # width of 1 bump
         xleft = bleft - wall_dx - width
-        xright = bright + wall_dx
+        xright = bright + wall_dx + width
 
         if x < xleft:
             v_pot = k*(x-xleft)**2/2.
@@ -55,8 +55,8 @@ class CosWellWalls(PotentialFunction):
 
         return v_pot.sum()
 
-    def force(self, system):
-        x = system.particles.pos  # this is array, assume 1D (x)
+    def force(self, ph):
+        x = ph[0]  # this is array, assume 1D (x)
         wall_dx  = self.params['wall_dx']
         k = self.params['k']
         bleft  = self.params['bleft']
@@ -68,8 +68,8 @@ class CosWellWalls(PotentialFunction):
 
         assert bleft < bright
         L = bright - bleft     # width of 1 bump
-        xleft = bleft - wall_dx
-        xright = bright + wall_dx
+        xleft = bleft - wall_dx - width
+        xright = bright + wall_dx + width
 
         if x < xleft:
             force = -k*(x-xleft)
@@ -89,8 +89,39 @@ class CosWellWalls(PotentialFunction):
 
         return force
 
-    def potential_and_force(self, system):
-        v_pot = self.potential(system)
-        forces = self.force(system)
+    def potential_and_force(self, ph):
+        v_pot = self.potential(ph)
+        forces = self.force(ph)
          
         return v_pot, forces
+    
+    
+    def plot_potential(self, ax):
+        """Plots the potential.
+
+        Parameters
+        ----------
+        ax : matplotlib axis object
+            Axis on which to plot the potential
+
+        """
+        x = np.linspace(-0.5, 0.5, 1000)
+        pot = np.zeros_like(x)
+        for i in range(len(x)):
+            pot[i], _ = self.potential_and_force((x[i], 0.))
+        ax.plot(x, pot)
+    
+    def plot_force(self, ax):
+        """Plots the force.
+
+        Parameters
+        ----------
+        ax : matplotlib axis object
+            Axis on which to plot the force
+
+        """
+        x = np.linspace(-0.5, 0.5, 1000)
+        f = np.zeros_like(x)
+        for i in range(len(x)):
+            _, f[i] = self.potential_and_force((x[i], 0.))
+        ax.plot(x, f)
