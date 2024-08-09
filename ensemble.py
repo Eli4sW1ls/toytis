@@ -635,15 +635,15 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_PPTIS":
             # For body ensembles, we start at the left interface
-            kick_retis(self)
-            return
+            # kick_retis(self)
+            # return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["M"]
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "PPTIS_0plusmin_primed":
             # For body ensembles, we start at the left interface
-            kick_retis(self)
-            return
+            # kick_retis(self)
+            # return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2 
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
@@ -662,18 +662,21 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_i*":
             # For body ensembles, we start at the left interface
-            kick_star(self)
-            return
+            # kick_star(self)
+            # return
             rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
+            rand_stop = len(self.intfs["all"])-1
             rand_start = np.random.randint(self.id-1)
+            rand_start = 0
             start = self.intfs["all"][rand_start]- 0.0001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["all"][rand_stop]+0.0001
         elif self.ens_type == "i*_0star":
             # For body ensembles, we start at the left interface
-            kick_star(self)
-            return
+            # kick_star(self)
+            # return
             rand_stop = np.random.randint(2, len(self.intfs["all"]))
+            rand_stop = len(self.intfs["all"])-1
             start = self.intfs["L"]-0.0001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["all"][rand_stop]+0.0001
@@ -687,17 +690,18 @@ class Ensemble:
         # We make two subpaths, from start to mid, and from mid to stop
         # We set the velocity of each point to zero.
         if self.settings["dim"] > 1:
-            # maze_entry = 0.353187488
             maze_entry = 0.64
             phasepoints1 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
-            last_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_stop-1]-0.001]), np.zeros(self.settings["dim"]))
-            first_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_start+1]+0.002 if self.ens_type != "i*_0star" else start-0.001]), np.zeros(self.settings["dim"]))
+            if self.simtype == "i*":
+                last_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_stop-1]-0.001]), np.zeros(self.settings["dim"]))
+                first_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_start+1]+0.002 if self.ens_type != "i*_0star" else start-0.001]), np.zeros(self.settings["dim"]))
         else:
             phasepoints1 = [(i,0.) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(i,0.) for i in np.linspace(mid, stop, N)]
-            last_ph = (self.intfs["all"][rand_stop-1]-0.001,0)
-            first_ph = (self.intfs["all"][rand_start+1]+0.002,0)
+            if self.simtype == "i*":
+                last_ph = (self.intfs["all"][rand_stop-1]-0.001,0)
+                first_ph = (self.intfs["all"][rand_start+1]+0.002,0)
 
         # For [i*]: turns need to be added
         p2 = len([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] <= self.intfs["R"]])

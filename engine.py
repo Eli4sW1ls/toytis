@@ -42,9 +42,9 @@ class LangevinEngine:
         self.gamma = self.settings["friction"]
         # self.potential = Potential()
         # self.potential = CosBumpSeriesWalls()
-        # self.potential = FlatWall1D()
+        self.potential = FlatWall1D()
         # self.potential = CosDipMetastableWalls()
-        self.potential = CosWellWalls()
+        # self.potential = CosWellWalls()
         self.phasepoint = None
         self.kB = 1.0
         self.kT = self.kB * self.T

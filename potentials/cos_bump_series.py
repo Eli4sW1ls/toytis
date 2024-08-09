@@ -25,7 +25,7 @@ class CosBumpSeriesWalls():
                        'bleft': -0.1, 
                        'bright': 0.1 ,
                        'deltaf': 1,
-                        'nbump': 2}
+                        'nbump': 1}
 
     def potential(self, ph):
 

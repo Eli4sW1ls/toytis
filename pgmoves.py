@@ -69,7 +69,7 @@ def pg_shooting_move(ens, level=0):
     # the backwards part (corresponding to the starting condition) is more
     # restrictive than the forwards part (corresponding to the end condition).
     # propagate backwards. Maxlen = shoot_maxlen-1, because shootpoint is 1
-    bw_status, bw_tuple = propagate(ens, shootpoint, -1., shoot_maxlen-1)
+    bw_status, bw_tuple = propagate(ens, shootpoint, -1., shoot_maxlen-1) # -1 because shootpoint not incl + last point outside shooting zone
     # if unsuccessful, return the status and the partially propagated path
     if bw_status != "ACC": 
         logger.debug("Backwards propagation not successful: {}".format(
@@ -80,7 +80,7 @@ def pg_shooting_move(ens, level=0):
                                ens.id, [ptype, 0, bw_status, shootpoint_op])
     # if successful, we continue propagating forwards
     fw_status, fw_tuple = propagate(ens, shootpoint, 1.,
-                                    shoot_maxlen-len(bw_tuple[0]))
+                                    shoot_maxlen-len(bw_tuple[0])+1) # +1 want laatste punt telt niet mee
     # if unsuccessful, return the status and the partially propagated path
     if fw_status != "ACC":
         logger.debug("Forwards propagation not successful: {}".format(

@@ -77,7 +77,7 @@ class Simulation:
             self.settings["Snakewait"] = 5
             logger.info("Creating dummy initial paths for the ensembles")
             for ens in self.ensembles:
-                ens.create_initial_path()
+                ens.create_initial_path(N=6)
             logger.info("Done creating dummy initial paths for the ensembles")
         else:
             # load the ensembles from restart pickles
@@ -126,7 +126,7 @@ class Simulation:
         self.cycle += 1
 
         scheme = np.random.choice([1, 2])
-        scheme = 1
+        # scheme = 1
         odd = False if len(self.ensembles) % 2 == 0 else True
         if scheme == 1:
             self.do_null_move(0, "00")

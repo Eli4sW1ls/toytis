@@ -41,7 +41,7 @@ def shooting_move(ens, level=0):
     """
     path = ens.paths[level]  # last accepted path
     pathlen = len(path.phasepoints)
-    shoot_maxlen = min(int((pathlen-2)/np.random.random()) + 2, ens.max_len)
+    shoot_maxlen = min(int((pathlen-2)/np.random.rand()) + 2, ens.max_len)
     sh_id = np.random.randint(1,pathlen-1)
     shootpoint = (path.phasepoints[sh_id][0],
                   ens.engine.draw_velocities())
@@ -57,7 +57,7 @@ def shooting_move(ens, level=0):
     # the backwards part (corresponding to the starting condition) is more
     # restrictive than the forwards part (corresponding to the end condition).
     # propagate backwards. Maxlen = shoot_maxlen-1, because shootpoint is 1
-    bw_status, bw_tuple = propagate(ens, shootpoint, -1., shoot_maxlen-1)
+    bw_status, bw_tuple = propagate(ens, shootpoint, -1., shoot_maxlen-2) # -2 want shooting point kom niet in lijst!!!
     # if unsuccessful, return the status and the partially propagated path
     if bw_status != "ACC": 
         logger.debug("Backwards propagation not successful: {}".format(
@@ -68,7 +68,7 @@ def shooting_move(ens, level=0):
                                ens.id)
     # if successful, we continue propagating forwards
     fw_status, fw_tuple = propagate(ens, shootpoint, 1.,
-                                    shoot_maxlen-len(bw_tuple[0]))
+                                    shoot_maxlen-len(bw_tuple[0])-1) # -1 want shootpoint 2x niet meegeteld! <-> PyRETIS
     # if unsuccessful, return the status and the partially propagated path
     if fw_status != "ACC":
         logger.debug("Forwards propagation not successful: {}".format(
