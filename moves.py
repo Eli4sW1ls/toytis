@@ -588,7 +588,7 @@ def propagate(ens, sh, reverse, maxlen):
                 msg += f"{conds['type_cond']} conditions {conds['cond']}."
                 logger.debug(msg)
                 status = conds['rej_intf']
-        elif run_len >= maxlen:
+        if run_len >= maxlen:
             logger.debug(f"Path too long ({run_len} >= {maxlen}).")
             status = conds['rej_maxlen']
             run_worthy = False

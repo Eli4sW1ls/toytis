@@ -52,11 +52,12 @@ def pg_shooting_move(ens, level=0):
     n_ph = len(poss_sh)
     if n_ph == 0:
         n_ph=0
+        print(ens.id)
     sh_id = np.random.choice(poss_sh)
 
     shootpoint = (path.phasepoints[sh_id][0],
                   ens.engine.draw_velocities())
-    shoot_maxlen = min(n_ph/np.random.random(), ens.max_len)
+    shoot_maxlen = min(n_ph/np.random.random(), ens.max_len) + 2
     # We will not recalculate the orderparameter for this phasepoint, as 
     # external engines may save phasepoints at a lower precision. This can 
     # lead to the recalculated phasepoint shifting position w.r.t. an interface,
@@ -69,7 +70,7 @@ def pg_shooting_move(ens, level=0):
     # the backwards part (corresponding to the starting condition) is more
     # restrictive than the forwards part (corresponding to the end condition).
     # propagate backwards. Maxlen = shoot_maxlen-1, because shootpoint is 1
-    bw_status, bw_tuple = propagate(ens, shootpoint, -1., shoot_maxlen-1) # -1 because shootpoint not incl + last point outside shooting zone
+    bw_status, bw_tuple = propagate(ens, shootpoint, -1., shoot_maxlen-2) # -1 because shootpoint not incl
     # if unsuccessful, return the status and the partially propagated path
     if bw_status != "ACC": 
         logger.debug("Backwards propagation not successful: {}".format(
@@ -80,7 +81,7 @@ def pg_shooting_move(ens, level=0):
                                ens.id, [ptype, 0, bw_status, shootpoint_op])
     # if successful, we continue propagating forwards
     fw_status, fw_tuple = propagate(ens, shootpoint, 1.,
-                                    shoot_maxlen-len(bw_tuple[0])+1) # +1 want laatste punt telt niet mee
+                                    shoot_maxlen-len(bw_tuple[0])-1) # -1 want laatste punt telt niet mee
     # if unsuccessful, return the status and the partially propagated path
     if fw_status != "ACC":
         logger.debug("Forwards propagation not successful: {}".format(
@@ -375,13 +376,13 @@ def kick_star(ens):
         shootpoint_op = ens.orderparameter.calculate(sh)
         logger.debug("Init from ph {} with op {}".format(
                 sh, shootpoint_op))
-        bw_status, bw_tuple = propagate(ens, sh, -1., ens.max_len-1)
+        bw_status, bw_tuple = propagate(ens, sh, -1., ens.max_len-2)
         # if unsuccessful, return the status and the partially propagated path
         if bw_status != "ACC": 
             continue
         # if successful, we continue propagating forwards
         fw_status, fw_tuple = propagate(ens, sh, 1.,
-                                        ens.max_len-len(bw_tuple[0]))
+                                        ens.max_len-len(bw_tuple[0])-1)
         # if unsuccessful, return the status and the partially propagated path
         if fw_status != "ACC":
             continue
