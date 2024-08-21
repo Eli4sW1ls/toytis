@@ -106,12 +106,12 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
                 ax.plot(start_idx + len(path.orders) - 1,
                         path.orders[-1][0], "v",
                         color=ax.lines[-1].get_color(), ms = 7)
-                if intfs is not None:
-                    for intf in intfs:
-                        ax.axhline(intf, color="k", ls="--", lw=.5)
+            if intfs is not None:
+                for intf in intfs:
+                    ax.axhline(intf, color="k", ls="--", lw=.5)
     ax.legend()
     plt.tight_layout()
-    if ax is None:
+    if ax is not None:
         plt.show(block=True)
     
 

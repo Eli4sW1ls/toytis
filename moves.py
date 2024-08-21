@@ -155,6 +155,9 @@ def swap_zero(ensembles):
     # phasepoint forwards in time. Remember, the shoot phasepoint is already
     # present in ph1 and op1 via cut_extremal_phasepoints.
     ph1, op1, sh1 = cut_extremal_phasepoints(ens0, 1.)
+    if op1[-1][0] <= ens0.intfs["L"]:
+        logger.debug("Swap not allowed")
+        return "SWD", ens0.paths[0], ens1.paths[0]
     status1, tuple1 = propagate(ens1, sh1, 1., ens1.max_len - 2)
     # If not successful, return the status and the partially propagated path
     if status1 != "ACC":
@@ -164,14 +167,22 @@ def swap_zero(ensembles):
                                             ens1.id)
     # If successful, the new path should satisfy the crossing conditions.
     new_path1 = Path(ph1 + tuple1[0], op1 + tuple1[1], ens1.id)
+    ptype1 = ens1.get_ptype(new_path1)
     if not ens1.check_cross(new_path1):
         logger.warning("New path [0^+] doesn't satisfy ens cross conditions")
         return "NCR", ens1.paths[0], new_path1
+    if ptype1 in ens1.illegal_pathtypes:
+        logger.info("Illegal pathtype {} for primed ensemble".format(ptype1))
+        new_path1.meta = [ptype1, 0, "ILL", op1]
+        return "ILL", ens0.paths[0], (new_path1, ptype1)
     # 2. create the new path for the [0^-] ensemble.
     # Cut the first two phasepoints of the [0^+] path, and propagate the first
     # phasepoint backwards in time. Remember, the shoot phasepoint is already
     # present in ph0 and op0 via cut_extremal_phasepoints.
     ph0, op0, sh0 = cut_extremal_phasepoints(ens1, -1.)
+    if op0[0][0] >= ens1.intfs["R"] or op0[1][0] >= ens1.intfs["R"]:
+        logger.debug("Swap not allowed")
+        return "SWD", ens0.paths[0], new_path1
     status0, tuple0 = propagate(ens0, sh0, -1., ens0.max_len - 2)
     # If not successful, return the status and the partially propagated path
     if status0 != "ACC":

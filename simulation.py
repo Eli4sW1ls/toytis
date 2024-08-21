@@ -126,7 +126,7 @@ class Simulation:
         self.cycle += 1
 
         scheme = np.random.choice([1, 2])
-        scheme = 1
+        # scheme = 1
         odd = False if len(self.ensembles) % 2 == 0 else True
         if scheme == 1:
             self.do_null_move(0, "00")
@@ -334,14 +334,14 @@ class Simulation:
                     self.do_shooting_moves()
                 else:
                     self.do_swap_moves()
-                # if self.cycle % 50 == 0 or self.cycle == 1:
+                # if self.cycle % 12 == 0 or self.cycle == 1:
                 #     ps = []
                 #     # for i in range(self.settings["max_paths"]):
                 #     #     ps += [self.ensembles[1].paths[min(len(self.ensembles[1].paths)-1,i)]]
                 #     for i in range(len(self.intfs)):
                 #         if self.ensembles[i].ens_type != "state_A":
-                #             # ps += [self.ensembles[i].last_path]
-                #             ps += [self.ensembles[i].paths[np.argmax([max([op[0] for op in self.ensembles[i].paths[j].orders]) for j in range(len(self.ensembles[i].paths))])]]
+                #             ps += [self.ensembles[i].last_path]
+                #             # ps += [self.ensembles[i].paths[np.argmax([max([op[0] for op in self.ensembles[i].paths[j].orders]) for j in range(len(self.ensembles[i].paths))])]]
                 #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
                 #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
                 #     plot_paths(ps, self.intfs)

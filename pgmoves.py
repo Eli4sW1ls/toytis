@@ -57,7 +57,7 @@ def pg_shooting_move(ens, level=0):
 
     shootpoint = (path.phasepoints[sh_id][0],
                   ens.engine.draw_velocities())
-    shoot_maxlen = min(n_ph/np.random.random(), ens.max_len) + 2
+    shoot_maxlen = min(int(n_ph/np.random.rand()) + 2, ens.max_len)
     # We will not recalculate the orderparameter for this phasepoint, as 
     # external engines may save phasepoints at a lower precision. This can 
     # lead to the recalculated phasepoint shifting position w.r.t. an interface,
@@ -219,11 +219,14 @@ def pg_swap_zero(ensembles):
     # phasepoint forwards in time. Remember, the shoot phasepoint is already
     # present in ph1 and op1 via cut_extremal_phasepoints.
     ph1, op1, sh1 = cut_extremal_phasepoints(ens0, 1.)
+    if op1[-1][0] <= ens0.intfs["L"]:
+        logger.debug("Swap not allowed")
+        return "SWD", ens0.paths[0], ens1.paths[0]
     status1, tuple1 = propagate(ens1, sh1, 1., ens1.max_len - 2)
     # If not successful, return the status and the partially propagated path
     if status1 != "ACC":
         logger.debug("Forwards propagation not successful: {}".format(status1))
-        return status1, ens1.paths[0], (Path(ph1 + tuple1[0],
+        return status1, ens0.paths[0], (Path(ph1 + tuple1[0],
                                             op1 + tuple1[1],
                                             ens1.id))
     # If successful, the new path should satisfy the crossing conditions.
@@ -249,12 +252,19 @@ def pg_swap_zero(ensembles):
     else:
         new_path1.meta = [ptype1, 0, "ACC", sh1[0]]
     new_path1.staridx = (1, len(tuple1[1]))
+    if ptype1 in ens1.illegal_pathtypes:
+        logger.info("Illegal pathtype {} for primed ensemble".format(ptype1))
+        new_path1.meta = [ptype1, 0, "ILL", op1]
+        return "ILL", ens0.paths[0], (new_path1, ptype1)
     
     # 2. create the new path for the [0^-] ensemble.
     # Cut the first two phasepoints of the [0^+] path, and propagate the first
     # phasepoint backwards in time. Remember, the shoot phasepoint is already
     # present in ph0 and op0 via cut_extremal_phasepoints.
     ph0, op0, sh0 = cut_extremal_phasepoints(ens1, -1.)
+    if op0[0][0] >= ens1.intfs["R"] or op0[1][0] >= ens1.intfs["R"]:
+        logger.debug("Swap not allowed")
+        return "SWD", ens0.paths[0], new_path1
     status0, tuple0 = propagate(ens0, sh0, -1., ens0.max_len - 2)
     # If not successful, return the status and the partially propagated path
     if status0 != "ACC":
@@ -263,12 +273,13 @@ def pg_swap_zero(ensembles):
             new_path1
     # If successful, the new path should satisfy the crossing conditions.
     new_path0 = Path(tuple0[0] + ph0, tuple0[1] + op0, ens0.id)
+    ptype0 = ens0.get_ptype(new_path0)
     if not ens0.check_cross(new_path0):
         logger.warning("New path [0^-] doesn't satisfy ens cross conditions")
         return "NCR", new_path0, new_path1
     # If we reached this point, both new paths have been double checked, and we
     # return the accepted paths.
-    return "ACC", (new_path0, "RMR"), (new_path1, ptype1)
+    return "ACC", (new_path0, ptype0), (new_path1, ptype1)
 
 
 def pg_swap(ensembles, idx):
@@ -292,7 +303,13 @@ def pg_swap(ensembles, idx):
     lower_path = ensembles[idx].paths[0]
     upper_path = ensembles[idx+1].paths[0]
     is_path1, ptype1 = pg_check_path(ensembles[idx+1], lower_path)
-    is_path2, ptype2 = pg_check_path(ensembles[idx], upper_path)    
+    is_path2, ptype2 = pg_check_path(ensembles[idx], upper_path) 
+    if ptype1 in ensembles[idx+1].illegal_pathtypes:
+        logger.info("Illegal pathtype {} for primed ensemble".format(ptype1))
+        return "ILL", (lower_path, ptype1), (upper_path, ptype2)
+    if ptype2 in ensembles[idx].illegal_pathtypes:
+        logger.info("Illegal pathtype {} for primed ensemble".format(ptype2))
+        return "ILL", (lower_path, ptype1), (upper_path, ptype2)
     # plot_paths([lower_path])
     # plot_paths([upper_path])
     if is_path1 and is_path2:
@@ -607,7 +624,7 @@ def pg_check_path(ens, path):
         # (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]):
         ptype = "LML"
     elif np.all(np.asarray(path.orders) < [ens.intfs["L"]]) or np.all(np.asarray(path.orders) > [ens.intfs["R"]])\
-            or check_position([ordermax[0]], ens.intfs["L"], ens.intfs["R"] if ens.id == 1 else ens.intfs["M"]) == "M"\
+            or check_position([ordermax[0]], ens.intfs["L"], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"]) == "M"\
             or check_position([ordermin[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M":
         return False, "***"
     else:
@@ -619,7 +636,8 @@ def pg_check_path(ens, path):
     valid = valid and \
             (len(ens.start_conditions) == 0 or ptype[0] in ens.start_conditions) and \
             (len(ens.end_conditions) == 0 or ptype[2] in ens.end_conditions) and \
-            (len(ens.cross_conditions) == 0 or ptype[1] in ens.cross_conditions)
+            (len(ens.cross_conditions) == 0 or ptype[1] in ens.cross_conditions) and \
+            ptype not in ens.illegal_pathtypes
     return valid, ptype
 
 def shooting_move_old(ens, level=0):

@@ -167,12 +167,6 @@ class Ensemble:
             ptype = self.get_ptype(trial)
         ordermin = (min([op[0] for op in trial.orders]), np.argmin([op[0] for op in trial.orders]))
         ordermax = (max([op[0] for op in trial.orders]), np.argmax([op[0] for op in trial.orders]))
-        if self.simtype == "i*" and ordermin[1] < ordermax[1]:
-            dir = 1
-        else:
-            dir = -1
-        if trial.meta is not None:
-            trial.meta[1] = dir
         plen = len(trial.phasepoints)
         self.cycle += 1
         if status == "ACC":
@@ -199,6 +193,20 @@ class Ensemble:
         # Now we write the data to the path ensemble file
         if trial.staridx == None:
             trial.staridx = (0,0)
+        if (ordermin[1] < ordermax[1] and ptype != "RML") or ptype == "LMR":
+            dir = 1
+            if ptype == "RMR" and trial.staridx[0] > 1:
+                dir = -1
+            elif self.id > 2 and ptype == "LML" and trial.staridx[0] <= 1:
+                dir = -1
+        else:
+            dir = -1
+            if self.id > 2 and ptype == "RMR" and trial.staridx[0] <= 1:
+                dir = 1
+            elif ptype == "LML" and trial.staridx[0] > 1:
+                dir = 1
+        if trial.meta is not None:
+            trial.meta[1] = dir
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
                               plen, status, gen, ordermin, ordermax, dir, trial.staridx)
         # and write to the order.txt file
@@ -635,15 +643,15 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_PPTIS":
             # For body ensembles, we start at the left interface
-            # kick_retis(self)
-            # return
+            kick_retis(self)
+            return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["M"]
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "PPTIS_0plusmin_primed":
             # For body ensembles, we start at the left interface
-            # kick_retis(self)
-            # return
+            kick_retis(self)
+            return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2 
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
@@ -662,8 +670,8 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_i*":
             # For body ensembles, we start at the left interface
-            # kick_star(self)
-            # return
+            kick_star(self)
+            return
             rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
             rand_stop = len(self.intfs["all"])-1
             rand_start = np.random.randint(self.id-1)
@@ -673,8 +681,8 @@ class Ensemble:
             stop = self.intfs["all"][rand_stop]+0.0001
         elif self.ens_type == "i*_0star":
             # For body ensembles, we start at the left interface
-            # kick_star(self)
-            # return
+            kick_star(self)
+            return
             rand_stop = np.random.randint(2, len(self.intfs["all"]))
             rand_stop = len(self.intfs["all"])-1
             start = self.intfs["L"]-0.0001
