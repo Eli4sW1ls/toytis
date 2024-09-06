@@ -250,11 +250,11 @@ def pg_swap_zero(ensembles):
         new_path1 = Path(ph1 + tuple1[0] + ext_tuple[0], op1 + tuple1[1] + ext_tuple[1], ens1.id, 
                          [ptype1, 0, ext_status, sh1[0]])
     else:
-        new_path1.meta = [ptype1, 0, "ACC", sh1[0]]
+        new_path1.meta = [ptype1, 0, "ACC", op1[-1]]
     new_path1.staridx = (1, len(tuple1[1]))
     if ptype1 in ens1.illegal_pathtypes:
         logger.info("Illegal pathtype {} for primed ensemble".format(ptype1))
-        new_path1.meta = [ptype1, 0, "ILL", op1]
+        new_path1.meta = [ptype1, 0, "ILL", op1[-1]]
         return "ILL", ens0.paths[0], (new_path1, ptype1)
     
     # 2. create the new path for the [0^-] ensemble.
@@ -382,8 +382,10 @@ def kick_star(ens):
             else:
                 sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
         elif ens.settings["dim"] == 2:
-            orth_min = 0.2
-            orth_max = 0.8
+            # orth_min = 0.2
+            # orth_max = 0.8
+            orth_min = -2
+            orth_max = 2
             if ens.id == 0:
                 sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), ens.engine.draw_velocities())
             elif ens.id == 1:

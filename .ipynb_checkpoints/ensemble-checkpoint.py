@@ -2,10 +2,12 @@ import logging
 import numpy as np
 from path import Path
 from filehandler import make_ens_dirs_and_files
-from engine import LangevinEngine
-from order import OrderParameter
+from engine import LangevinEngine, ndLangevinEngine
+from order import OrderParameter, OrderX
 import pickle as pkl
 from funcs import remove_lines_from_file
+from moves import kick_retis
+from pgmoves import kick_star
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -124,10 +126,17 @@ class Ensemble:
         """ Sets the engine of the ensemble.
 
         """
-        self.engine = LangevinEngine(self.settings)
+        if self.settings["dim"] > 1:
+            self.engine = ndLangevinEngine(self.settings)
+        else:
+            self.engine = LangevinEngine(self.settings)
 
     def set_order_parameter(self):
-        self.orderparameter = OrderParameter(self.settings)
+        # self.orderparameter = OrderParameter(self.settings)
+        if self.settings["dim"] > 1:
+            self.orderparameter = OrderX(self.settings)
+        else:
+            self.orderparameter = OrderParameter(self.settings)
 
     def update_data(self, status, trial, gen, simcycle, update_paths=True):
         """Updates the data of the path ensemble after a move has been
@@ -158,12 +167,6 @@ class Ensemble:
             ptype = self.get_ptype(trial)
         ordermin = (min([op[0] for op in trial.orders]), np.argmin([op[0] for op in trial.orders]))
         ordermax = (max([op[0] for op in trial.orders]), np.argmax([op[0] for op in trial.orders]))
-        if self.simtype == "i*" and ordermin[1] < ordermax[1]:
-            dir = 1
-        else:
-            dir = -1
-        if trial.meta is not None:
-            trial.meta[1] = dir
         plen = len(trial.phasepoints)
         self.cycle += 1
         if status == "ACC":
@@ -190,6 +193,20 @@ class Ensemble:
         # Now we write the data to the path ensemble file
         if trial.staridx == None:
             trial.staridx = (0,0)
+        if (ordermin[1] < ordermax[1] and ptype != "RML") or ptype == "LMR":
+            dir = 1
+            if ptype == "RMR" and trial.staridx[0] > 1:
+                dir = -1
+            elif self.id > 2 and ptype == "LML" and trial.staridx[0] <= 1:
+                dir = -1
+        else:
+            dir = -1
+            if self.id > 2 and ptype == "RMR" and trial.staridx[0] <= 1:
+                dir = 1
+            elif ptype == "LML" and trial.staridx[0] > 1:
+                dir = 1
+        if trial.meta is not None:
+            trial.meta[1] = dir
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
                               plen, status, gen, ordermin, ordermax, dir, trial.staridx)
         # and write to the order.txt file
@@ -263,11 +280,18 @@ class Ensemble:
                 ordermin[0], ordermax[0], ordermin[1], ordermax[1], staridx[0], staridx[1], dir, 1.) + "\n")
     
     def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir, staridx):
+        dim = len(path.orders[0])
         with open(str(self.id).zfill(3) + "/order.txt", "a") as f:
             f.write(f"# Cycle: {simcycle}, status: {status}, move: {gen}, path length: {plen}, path type: {ptype}, direction: {'fw' if dir==1 else 'bw'}, staridx: {staridx}\n")
-            f.write("#     Time        Orderp\n")
+            f.write("#     Time" + "        Orderp")
+            for j in range(1,dim):
+                f.write(f"        Orderp{j}")
+            f.write("\n")
             for i, ord in enumerate(path.orders):
-                f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1] + "\n").format(i, ord[0]))
+                f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1]).format(i, ord[0]))
+                for j in range(1,dim):
+                    f.write(("  " + ORDER_FMT[1]).format(ord[j]))
+                f.write("\n")
 
 
     def set_conditions(self):
@@ -396,6 +420,29 @@ class Ensemble:
 
         else:
             raise ValueError("Unknown ensemble type: {}".format(self.ens_type))
+        
+    def check_position(self, ph, L, R):
+        """ Checks whether a phasepoint is:
+        - in the interval [L, R] : M
+        - left of L              : L
+        - right of R             : R
+
+        Parameters
+        ----------
+        ph : tuple (x, v) of floats
+            Phasepoint to check
+        L : float
+            Left boundary of the interval
+        R : float
+            Right boundary of the interval
+
+        Returns
+        -------
+        str
+            String representing the condition of the phasepoint
+
+        """
+        return "M" if L <= self.orderparameter.calculate(ph)[0] <= R else "L" if self.orderparameter.calculate(ph)[0] < L else "R"
 
     def check_path(self, path):
         """ Checks whether a path is valid for the ensemble.
@@ -558,7 +605,7 @@ class Ensemble:
         middlepos = "M" if self.check_cross(path) else "*"
         return startpos + middlepos + endpos
 
-    def create_initial_path(self, N = 250):
+    def create_initial_path(self, N = 31):
         """Create an initial path for the ensemble.
         We will create a path that starts at one of the start_condition intfs,
         and ends in one of the end_condition intfs. We check whether there is a
@@ -573,33 +620,48 @@ class Ensemble:
         logger.info("Creating initial path for ensemble {}".format(self.name))
         if self.ens_type == "body_TIS":
             # For body ensembles, we start at the left interface
+            kick_retis(self)
+            return
+            N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["L"]*(1-np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["M"]*(1+np.sign(self.intfs["M"])*0.001)
             stop = self.intfs["L"]*(1-np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "state_A":
             # For state A ensembles, we start at the right interface
+            kick_retis(self)
+            return
+            N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["R"]+0.000001
-            mid = self.intfs["R"]*(1 - np.sign(self.intfs["R"])*0.1)
+            mid = self.intfs["R"]*(1 - np.sign(self.intfs["R"])*0.15)
             stop = self.intfs["R"]+0.000001
         elif self.ens_type == "state_A_lambda_min_one":
+            kick_retis(self)
+            return
             # For state A ensembles, we start at the right interface
             start = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_PPTIS":
             # For body ensembles, we start at the left interface
+            # kick_retis(self)
+            # return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["M"]
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "PPTIS_0plusmin_primed":
             # For body ensembles, we start at the left interface
+            # kick_retis(self)
+            # return
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
-            mid = (self.intfs["R"] + self.intfs["L"]) / 2
+            mid = (self.intfs["R"] + self.intfs["L"]) / 2 
             stop = self.intfs["R"]*(1 + np.sign(self.intfs["R"])*0.001)
         elif self.ens_type == "RETIS_0plus":
             # For body ensembles, we start at the left interface
+            kick_retis(self)
+            return
+            N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
-            mid = (self.intfs["L"] + self.intfs["R"]) / 2
+            mid = (self.intfs["L"] + self.intfs["R"]) / 2 - np.random.rand()/6
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "PPTIS_Nplusmin_primed":
             # For body ensembles, we start at the right interface
@@ -608,14 +670,21 @@ class Ensemble:
             stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
         elif self.ens_type == "body_i*":
             # For body ensembles, we start at the left interface
+            kick_star(self)
+            return
             rand_stop = np.random.randint(self.id, len(self.intfs["all"]))
+            rand_stop = len(self.intfs["all"])-1
             rand_start = np.random.randint(self.id-1)
+            rand_start = 0
             start = self.intfs["all"][rand_start]- 0.0001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["all"][rand_stop]+0.0001
         elif self.ens_type == "i*_0star":
             # For body ensembles, we start at the left interface
+            kick_star(self)
+            return
             rand_stop = np.random.randint(2, len(self.intfs["all"]))
+            rand_stop = len(self.intfs["all"])-1
             start = self.intfs["L"]-0.0001
             mid = (self.intfs["R"] + self.intfs["L"]) / 2
             stop = self.intfs["all"][rand_stop]+0.0001
@@ -628,28 +697,40 @@ class Ensemble:
             raise ValueError("Unknown ensemble type: {}".format(self.ens_type))
         # We make two subpaths, from start to mid, and from mid to stop
         # We set the velocity of each point to zero.
-        phasepoints1 = [(i,0.) for i in np.linspace(start, mid, N)]
-        phasepoints2 = [(i,0.) for i in np.linspace(mid, stop, N)]
+        if self.settings["dim"] > 1:
+            # maze_entry = 0.64
+            maze_entry = 0.353187488
+            phasepoints1 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
+            phasepoints2 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
+            if self.simtype == "i*":
+                last_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_stop-1]-0.001]), np.zeros(self.settings["dim"]))
+                first_ph = (np.array([maze_entry]*(self.settings["dim"]-1) + [self.intfs["all"][rand_start+1]+0.002 if self.ens_type != "i*_0star" else start-0.001]), np.zeros(self.settings["dim"]))
+        else:
+            phasepoints1 = [(i,0.) for i in np.linspace(start, mid, N)]
+            phasepoints2 = [(i,0.) for i in np.linspace(mid, stop, N)]
+            if self.simtype == "i*":
+                last_ph = (self.intfs["all"][rand_stop-1]-0.001,0)
+                first_ph = (self.intfs["all"][rand_start+1]+0.002,0)
 
         # For [i*]: turns need to be added
-        p2 = len([ph for ph in phasepoints2 if ph[0] <= self.intfs["R"]])
-        p1 = len([ph for ph in phasepoints1 if ph[0] <= self.intfs["L"]])
+        p2 = len([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] <= self.intfs["R"]])
+        p1 = len([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["L"]])
         pp1 = N - p1
         if self.ens_type == "i*_0star":
             if rand_stop < len(self.intfs["all"])-1:
-                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.001,0)]
+                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [last_ph]
         elif self.ens_type == "body_i*":
             if rand_start > 0:
                 p1 += len([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]]) + 1
-                phasepoints1 = [(self.intfs["all"][rand_start+1]+0.002,0)] + list(reversed([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]])) +  phasepoints1
+                phasepoints1 = [first_ph] + list(reversed([ph for ph in phasepoints1 if self.orderparameter.calculate(ph)[0] <= self.intfs["all"][rand_start+1]])) +  phasepoints1
             if rand_stop < len(self.intfs["all"])-1:
-                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [(self.intfs["all"][rand_stop-1]-0.001,0)]
+                phasepoints2 += list(reversed([ph for ph in phasepoints2 if self.orderparameter.calculate(ph)[0] >= self.intfs["all"][rand_stop-1]])) + [last_ph]
         
         orders1 = [self.orderparameter.calculate(ph) for ph in phasepoints1]
         orders2 = [self.orderparameter.calculate(ph) for ph in phasepoints2]
         phasepoints = phasepoints1 + phasepoints2[1:]
         orders = orders1 + orders2[1:]
-        path = Path(phasepoints, orders, self.id, ["LMR", 0, "ACC", orders1[0][0]])
+        path = Path(phasepoints, orders, self.id, ["LMR", 0, "ACC", orders1[0]])
 
         if self.ens_type == "i*_0star":
             path.staridx = (1, int(N)+p2-2)

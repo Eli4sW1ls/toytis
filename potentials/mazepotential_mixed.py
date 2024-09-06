@@ -449,7 +449,7 @@ class Maze2D_color(PotentialFunction):
         for intf in intfs:
             ax2.axvline(intf, ymin=0.1, ymax=0.93, color='red')
         fig2.colorbar(c2)
-        plt.show()
+        plt.show(block=True)
 
 ###################################   
 # Calculate wall distance vectors #

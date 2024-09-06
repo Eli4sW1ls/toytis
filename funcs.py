@@ -44,8 +44,8 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
             start_ids.append(start_ids[-1] + len(path.phasepoints))
     assert len(start_ids) == len(paths)
     if ax is None:
-        ax = plt.figure().add_subplot()
-        # ax = plt.figure().add_subplot(projection='3d')
+        # ax = plt.figure().add_subplot()
+        ax = plt.figure().add_subplot(projection='3d')
     for path, start_idx in zip(paths, start_ids):
         if len(path.orders[0]) > 1:
             ax.plot([path.orders[i + start_idx][1] for i in range(len(path.orders))], [i + start_idx for i in range(len(path.orders))],
@@ -68,7 +68,10 @@ def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
                         path.orders[-1][0], "v",
                         color=ax.lines[-1].get_color(), ms = 7)
                 print(path.meta)
-                ax.plot(path.meta[-1][1], path.orders.index(path.meta[-1]), path.meta[-1][0], "o", **kwargs)
+                try:
+                    ax.plot(path.meta[-1][1], path.orders.index(path.meta[-1]), path.meta[-1][0], "o", **kwargs)
+                except:
+                    return
             else:
                 ax.plot(path.orders[0][1], 0, path.orders[0][0], "^",
                         color=ax.lines[-1].get_color(), ms = 7)

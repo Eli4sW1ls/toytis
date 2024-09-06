@@ -59,9 +59,8 @@ class Simulation:
         self.include_stateB = settings.get("include_stateB", False)
         self.prime_both_starts = settings.get("prime_both_starts", False)
         self.high_friction = settings.get("high_friction", False)
-        #self.snake_Lmax = settings.get("snake_Lmax", 5)
-        #self.save_pe2 = settings.get("save_pe2", False)
-        
+        self.v_ord = settings.get("v_ord", False)
+
         logger.info("Initializing the {} simulation.".format(self.simtype))
         # Making the ensembles
         self.ensembles = []
@@ -213,12 +212,11 @@ class Simulation:
         ens_set["friction"] = self.settings["friction"]
         ens_set["dt"] = self.settings["dt"]
         ens_set["prime_both_starts"] = self.prime_both_starts
-        # ens_set["save_pe2"] = self.save_pe2
-        # ens_set["pe2_N"] = self.settings["pe2_N"]
         ens_set["max_paths"] = self.settings["max_paths"]
         ens_set["mass"] = self.settings["mass"]
         ens_set["dim"] = self.settings["dim"]
         ens_set["high_friction"] = self.settings["high_friction"]
+        ens_set["v_ord"] = self.v_ord
 
         if self.permeability:
             assert self.zero_left is not None, "No zero_left for permeability"
@@ -348,9 +346,10 @@ class Simulation:
                 #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
                 #     print(self.cycle)
                 #     plt.close()
-                # if self.cycle == 1:
-                #     p = self.ensembles[0].engine.potential
-                #     p.plot_pot(self.intfs)
+                if self.cycle == 1:
+                    p = self.ensembles[0].engine.potential
+                    p.plot_pot(self.intfs)
+                    # plt.close()
             except KeyboardInterrupt:
                 print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
                 try:

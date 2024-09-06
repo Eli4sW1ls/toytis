@@ -9,6 +9,7 @@ from potentials.cos_well import CosWellWalls
 from potentials.mazepotential_mixed import Maze2D_color
 from potentials.potential2channels_1 import PotentialTwoChannels
 from potentials.pot_ibuprofen import Ibuprofen
+from potentials.cffs2d import PotentialcFFS
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -42,9 +43,9 @@ class LangevinEngine:
         self.gamma = self.settings["friction"]
         # self.potential = Potential()
         # self.potential = CosBumpSeriesWalls()
-        self.potential = FlatWall1D()
+        # self.potential = FlatWall1D()
         # self.potential = CosDipMetastableWalls()
-        # self.potential = CosWellWalls()
+        self.potential = CosWellWalls()
         self.phasepoint = None
         self.kB = 1.0
         self.kT = self.kB * self.T
@@ -183,9 +184,10 @@ class ndLangevinEngine:
         self.high_friction = settings.get("high_friction", False)
         self.T = self.settings["temperature"]
         self.gamma = self.settings["friction"]
-        self.potential = Maze2D_color(mazefig="potentials/maze.png")
+        # self.potential = Maze2D_color(mazefig="potentials/maze.png")
         # self.potential = PotentialTwoChannels()
         # self.potential = Ibuprofen()
+        self.potential = PotentialcFFS(4, np.pi/6)
         # self.potential = RectangularGridWithBarrierPotential(3*0.1, 9*0.1, 2000, (1.5*0.1, 4.5*0.1), -3.5*3/10, 0.2, 2*.1)
         #self.potential = RectangularGridWithRuggedPotential()
         self.phasepoint = None

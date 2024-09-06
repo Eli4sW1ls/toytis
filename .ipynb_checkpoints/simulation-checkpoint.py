@@ -3,6 +3,7 @@ import numpy as np
 from ensemble import Ensemble
 from moves import shooting_move, swap, swap_zero, repptis_swap
 from snakemove import snake_move, forced_extension
+from pgmoves import pg_shooting_move, pg_swap_zero, pg_swap, shooting_move_old
 import pickle as pkl
 from funcs import plot_paths
 import matplotlib.pyplot as plt
@@ -57,6 +58,7 @@ class Simulation:
         self.p_shoot = settings.get("p_shoot", 0.9)
         self.include_stateB = settings.get("include_stateB", False)
         self.prime_both_starts = settings.get("prime_both_starts", False)
+        self.high_friction = settings.get("high_friction", False)
         #self.snake_Lmax = settings.get("snake_Lmax", 5)
         #self.save_pe2 = settings.get("save_pe2", False)
         
@@ -75,7 +77,7 @@ class Simulation:
             self.settings["Snakewait"] = 5
             logger.info("Creating dummy initial paths for the ensembles")
             for ens in self.ensembles:
-                ens.create_initial_path()
+                ens.create_initial_path(N=6)
             logger.info("Done creating dummy initial paths for the ensembles")
         else:
             # load the ensembles from restart pickles
@@ -89,10 +91,22 @@ class Simulation:
         """
         self.cycle += 1
         for ens in self.ensembles:
-            status, trial = shooting_move(ens)
+            if ens.ens_type in ["body_i*", "i*_0star"]: 
+                # np.random.seed(ens.cycle)
+                status, trial = pg_shooting_move(ens)
+                # np.random.seed(ens.cycle)
+                # status2, trial2 = shooting_move_old(ens)
+                # if status != status2:
+                #     break
+                # if type(trial) is tuple:
+                #     assert trial[1] == trial2[1]
+                #     trial = trial[0]; trial2 = trial2[0]
+                # assert trial.phasepoints == trial2.phasepoints and trial.meta == trial2.meta and trial.orders == trial2.orders and trial.ens_id == trial2.ens_id \
+                # and trial.staridx == trial2.staridx
+            else:
+                status, trial = shooting_move(ens)
             logger.info("Shooting move in {} resulted in {}".format(
                 ens.name, status))
-            # print(status, trial.ptype if type(trial) is not tuple else trial[0].ptype)
             ens.update_data(status, trial, "sh", self.cycle)
 
 
@@ -112,6 +126,7 @@ class Simulation:
         self.cycle += 1
 
         scheme = np.random.choice([1, 2])
+        # scheme = 1
         odd = False if len(self.ensembles) % 2 == 0 else True
         if scheme == 1:
             self.do_null_move(0, "00")
@@ -136,7 +151,10 @@ class Simulation:
 
         """
         if i == 0:
-            status, trial1, trial2 = swap_zero(self.ensembles)
+            if self.simtype == "i*":
+                status, trial1, trial2 = pg_swap_zero(self.ensembles)
+            else:
+                status, trial1, trial2 = swap_zero(self.ensembles)
             logger.info("Swap move {} <-> {} resulted in {}".format(
                 self.ensembles[i].name, self.ensembles[i+1].name, status))
             self.ensembles[i].update_data(status, trial1, "s+", self.cycle)
@@ -156,6 +174,13 @@ class Simulation:
                 self.ensembles[i].name, self.ensembles[i+1].name, status))
             self.ensembles[i].update_data(status, trial1, "s+", self.cycle)
             self.ensembles[i+1].update_data(status, trial2, "s-", self.cycle)
+        
+        elif self.simtype == "i*":
+            status, trial1, trial2 = pg_swap(self.ensembles, i)
+            logger.info("Swap move {} <-> {} resulted in {}".format(
+                self.ensembles[i].name, self.ensembles[i+1].name, status))
+            self.ensembles[i].update_data(status, trial1, "s+", self.cycle)
+            self.ensembles[i+1].update_data(status, trial2, "s-", self.cycle)
     
 
     def do_null_move(self, i, gen="00"):
@@ -167,7 +192,11 @@ class Simulation:
             Index of the ensemble in which to perform the null move.
 
         """
-        self.ensembles[i].update_data("ACC", self.ensembles[i].last_path,
+        if self.simtype == "i*":
+            path = (self.ensembles[i].last_path, "RMR" if i==0 else self.ensembles[i].last_path.meta[0])
+        else:
+            path = self.ensembles[i].last_path
+        self.ensembles[i].update_data("ACC", path,
                                       gen, self.cycle)
         
 
@@ -189,6 +218,7 @@ class Simulation:
         ens_set["max_paths"] = self.settings["max_paths"]
         ens_set["mass"] = self.settings["mass"]
         ens_set["dim"] = self.settings["dim"]
+        ens_set["high_friction"] = self.settings["high_friction"]
 
         if self.permeability:
             assert self.zero_left is not None, "No zero_left for permeability"
@@ -299,22 +329,28 @@ class Simulation:
                 logger.info("-" * 80)
                 logger.info("Cycle {}".format(self.cycle))
                 logger.info("-" * 80)
-                if np.random.rand() < p_shoot:
+                a = np.random.rand()
+                if a < p_shoot:
                     self.do_shooting_moves()
-                    if self.cycle % 10 == 0 or self.cycle == 1:
-                        ps = []
-                        for i in range(len(self.intfs)):
-                            if self.ensembles[i].ens_type != "state_A":
-                                ps += [self.ensembles[i].last_path]
-                                # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
-                                #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
-                        plot_paths(ps, self.ensembles[i].intfs["all"])
-                                #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-                        print(self.cycle)
-                        input()
-                        plt.close('all')
                 else:
                     self.do_swap_moves()
+                # if self.cycle % 12 == 0 or self.cycle == 1:
+                #     ps = []
+                #     # for i in range(self.settings["max_paths"]):
+                #     #     ps += [self.ensembles[1].paths[min(len(self.ensembles[1].paths)-1,i)]]
+                #     for i in range(len(self.intfs)):
+                #         if self.ensembles[i].ens_type != "state_A":
+                #             ps += [self.ensembles[i].last_path]
+                #             # ps += [self.ensembles[i].paths[np.argmax([max([op[0] for op in self.ensembles[i].paths[j].orders]) for j in range(len(self.ensembles[i].paths))])]]
+                #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                #     plot_paths(ps, self.intfs)
+                #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                #     print(self.cycle)
+                #     plt.close()
+                # if self.cycle == 1:
+                #     p = self.ensembles[0].engine.potential
+                #     p.plot_pot(self.intfs)
             except KeyboardInterrupt:
                 print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
                 try:
@@ -337,6 +373,43 @@ class Simulation:
         """
         with open(filename, "rb") as f:
             return pkl.load(f)
+        
+
+    ####### [i*] SIMULATION FUNCTIONS ########
+
+    # If we would ever need a separate run function
+    def run_pg(self):
+        p_shoot = self.p_shoot
+        while self.cycle < self.max_cycles:
+            try:
+                logger.info("-" * 80)
+                logger.info("Cycle {}".format(self.cycle))
+                logger.info("-" * 80)
+                if np.random.rand() < p_shoot:
+                    self.do_shooting_moves()
+                    # if self.cycle % 1 == 0 or self.cycle == 1:
+                    #     ps = []
+                    #     for i in range(len(self.intfs)):
+                    #         if self.ensembles[i].ens_type != "state_A":
+                    #             ps += [self.ensembles[i].last_path]
+                    #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                    #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                    #     plot_paths(ps, self.ensembles[i].intfs["all"])
+                    #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                    #     print(self.cycle)
+                    #     plt.close('all')
+                else:
+                    self.do_swap_moves()
+            except KeyboardInterrupt:
+                print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
+                try:
+                    response = input()
+                    if response == 'q':
+                        break
+                    print('Resuming...')
+                except KeyboardInterrupt:
+                    print('Resuming...')
+                    continue
 
     ############################################################
     # Old functions that allowed a snake to use its memory of prior MCMC paths.

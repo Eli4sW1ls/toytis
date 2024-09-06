@@ -4,6 +4,7 @@ from potential import Potential
 from potentials.cos_bump_series import CosBumpSeriesWalls
 from potentials.flat_walls import FlatWall1D
 from potentials.cos_dip_metastables import CosDipMetastableWalls
+from potentials.cos_well import CosWellWalls
 
 from potentials.mazepotential_mixed import Maze2D_color
 from potentials.potential2channels_1 import PotentialTwoChannels
@@ -41,8 +42,9 @@ class LangevinEngine:
         self.gamma = self.settings["friction"]
         # self.potential = Potential()
         # self.potential = CosBumpSeriesWalls()
-        self.potential = FlatWall1D()
+        # self.potential = FlatWall1D()
         # self.potential = CosDipMetastableWalls()
+        self.potential = CosWellWalls()
         self.phasepoint = None
         self.kB = 1.0
         self.kT = self.kB * self.T
@@ -59,7 +61,7 @@ class LangevinEngine:
 
         if self.high_friction:
             self.sigma = np.sqrt(2.0 * self.dt / (self.beta * self.mass * self.gamma))
-            self.bddt = self.gamma * self.dt / (self.mass)
+            self.bddt = self.dt / (self.mass * self.gamma)
         else:
             gammadt = self.gamma * self.dt
             exp_gdt = np.exp(-gammadt)

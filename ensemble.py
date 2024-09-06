@@ -70,14 +70,6 @@ class Ensemble:
         union of the start and end conditions.
     simtype : str
         Type of simulation to perform. This is either "repptis", "retis" or "i*"
-    save_pe2 : bool
-        Whether to save more accepted paths to a pathensemble2.txt file or not
-        Default is False. 
-    pe2_len : int
-        Amount of paths we've written to the pathensemble2.txt file
-    pe2_N : int
-        Number of paths we want to write to the pathensemble2.txt file
-        This must be <= self.max_paths ... 
     """
 
     def __init__(self, settings):
@@ -105,10 +97,7 @@ class Ensemble:
         self.simtype = settings["simtype"]
         self.prime_both_starts = settings.get("prime_both_starts", False)
         self.high_friction = settings.get("high_friction", False)
-        #self.save_pe2 = settings.get("save_pe2", False)
-        #self.pe2_len = settings.get("pe2_len", 0)
-        #self.pe2_N = settings.get("pe2_N", self.max_paths)
-        #assert self.pe2_N <= self.max_paths, "pe2_N must be <= max_paths"
+        self.v_ord = settings.get("v_ord", False)
 
         # Set the start, end and cross conditions of the ensemble
         self.set_conditions()
@@ -210,7 +199,8 @@ class Ensemble:
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
                               plen, status, gen, ordermin, ordermax, dir, trial.staridx)
         # and write to the order.txt file
-        self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir, trial.staridx)
+        if status == "ACC":
+            self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir, trial.staridx)
 
     def jump_back(self, n=1):
         """Jump back n cycles in the ensemble.
@@ -233,36 +223,6 @@ class Ensemble:
         # Update the cycle numbers
         self.cycle -= n
         # We do not update the acc_cycle, md_cycle etc
-
-    # def write_to_pe2(self, N=None, gen="00"):
-    #     """This is the same as write_to_pe_file, but we write information for 
-    #     the last N paths instead of just the last path. As these paths are all
-    #     accepted, we will just recalculate the ordermin, ordermax, ptype and 
-    #     plen for each path, and write those out. 
-    #     This is of course very sloppy, as we're calculating stuff we should 
-    #     already have access to, and even more, we are losing the generation 
-    #     information of the path. But we're just testing here. 
-
-    #     Parameters
-    #     ----------
-    #     N : int
-    #         Number of last paths to write to the file. If none, the ensemble's 
-    #         default value of pe2_N is used.
-
-    #     """
-    #     if N is None:
-    #         N = self.pe2_N
-    #     with open(str(self.id) + "/pathensemble2.txt", "a") as f:
-    #         for path in self.paths[:N]:
-    #             ptype = self.get_ptype(path)
-    #             plen = len(path.phasepoints)
-    #             ordermin = min([op[0] for op in path.orders])
-    #             ordermax = max([op[0] for op in path.orders])
-    #             f.write(PATH_FMT.format(
-    #                 self.pe2_len, self.pe2_len, self.pe2_len, ptype[0],
-    #                 ptype[1], ptype[2], plen, "ACC", gen, ordermin, ordermax,
-    #                 0, 0, 0., 0, 0, 1.) + "\n")
-    #             self.pe2_len += 1
 
     def write_to_pe_file(self, simcycle, cycle_acc, cycle_md, ptype, plen,
                          status, gen, ordermin, ordermax, dir, staridx):
@@ -289,8 +249,14 @@ class Ensemble:
             f.write("\n")
             for i, ord in enumerate(path.orders):
                 f.write((ORDER_FMT[0] + "  " + ORDER_FMT[1]).format(i, ord[0]))
-                for j in range(1,dim):
+                for j in range(1, dim):
                     f.write(("  " + ORDER_FMT[1]).format(ord[j]))
+                for j in range(dim):
+                    if self.v_ord:
+                        if dim > 1:
+                            f.write(("  " + ORDER_FMT[1]).format(path.phasepoints[i][1][j]))
+                        else:
+                            f.write(("  " + ORDER_FMT[1]).format(path.phasepoints[i][1]))
                 f.write("\n")
 
 
@@ -736,11 +702,7 @@ class Ensemble:
             path.staridx = (1, int(N)+p2-2)
         else:
             path.staridx = (int(p1), int(p1 + pp1 + p2-2))
-        # if self.save_pe2:  # Such that we have enough to write to pe2
-        #     for i in range(self.pe2_N):
-        #         self.paths.append(path)
-        #     self.write_to_pe2(gen="ld")
-        # else:
+
         self.paths.append(path)
         self.last_path = path
         self.update_data("ACC", path if self.ens_type not in ["i*_0star", "body_i*"] else (path, "LMR"), "ld", 0)
