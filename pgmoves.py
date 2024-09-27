@@ -380,12 +380,12 @@ def kick_star(ens):
             elif ens.id == 1:
                 sh = (ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, ens.engine.draw_velocities())
             else:
-                sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
+                sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001, ens.engine.draw_velocities())
         elif ens.settings["dim"] == 2:
-            # orth_min = 0.2
-            # orth_max = 0.8
-            orth_min = -2
-            orth_max = 2
+            orth_min = 0.2
+            orth_max = 0.8
+            # orth_min = -2
+            # orth_max = 2
             if ens.id == 0:
                 sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), ens.engine.draw_velocities())
             elif ens.id == 1:

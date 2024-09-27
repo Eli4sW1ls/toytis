@@ -71,9 +71,10 @@ class Simulation:
             self.create_ensembles()
             logger.info("Done making the ensembles")
 
-            # No snake moves allowed as we only have level 1 paths
-            self.settings["Snakeable"] = False
-            self.settings["Snakewait"] = 5
+            p = self.ensembles[0].engine.potential
+            p.plot_pot(self.intfs)
+            # plt.close()
+
             logger.info("Creating dummy initial paths for the ensembles")
             for ens in self.ensembles:
                 ens.create_initial_path(N=6)
@@ -346,10 +347,6 @@ class Simulation:
                 #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
                 #     print(self.cycle)
                 #     plt.close()
-                if self.cycle == 1:
-                    p = self.ensembles[0].engine.potential
-                    p.plot_pot(self.intfs)
-                    # plt.close()
             except KeyboardInterrupt:
                 print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
                 try:

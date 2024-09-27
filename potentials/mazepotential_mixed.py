@@ -432,7 +432,7 @@ class Maze2D_color(PotentialFunction):
             x_y[i] = np.array([self.potential((np.array([y, xx]), np.array([0,0]))) for xx in np.linspace(0.1, 0.93, 1000)])
             # plt.imshow([np.linspace(0.1, 0.93, 1000), x_y + y], color=(min(abs(y-0.1)/0.83,1),0,min(abs(1-(y-0.1)/0.83), 1)))
             i+=1
-        c1 = ax1.pcolorfast((0.1,0.93),(0.1,0.93), x_y)
+        c1 = ax1.pcolorfast((0.1,0.93),(0.1,0.93), x_y, vmax=5)
         for intf in intfs:
             ax1.axvline(intf, ymin=0.1, ymax=0.93, color='red')
         fig1.colorbar(c1)
