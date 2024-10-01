@@ -199,8 +199,8 @@ class Ensemble:
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
                               plen, status, gen, ordermin, ordermax, dir, trial.staridx)
         # and write to the order.txt file
-        if status == "ACC":
-            self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir, trial.staridx)
+        # if status == "ACC":
+        self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir, trial.staridx)
 
     def jump_back(self, n=1):
         """Jump back n cycles in the ensemble.

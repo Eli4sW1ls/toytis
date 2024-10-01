@@ -23,9 +23,9 @@ class Maze2D_color(PotentialFunction):
     
     def __init__(self, desc = '2D maze potential', mazefig = None, \
         mazearr = None, lenx=1., leny=1., gauss_a = 500., gauss_b = 0., \
-        gauss_c = 1.0, D = 4, dw = 0.5, gauss_a2 = 25., gauss_b2 = 0., \
+        gauss_c = 1.0, D = 4, dw = 0.5, gauss_a2 = 50., gauss_b2 = 0.,\
         gauss_c2 = 1.0, dw2 = 0.5, global_pot = "global_slope", \
-        global_pot_params = [0.,0.5], slope_exit=0.2):
+        global_pot_params = [0.,0.5], slope_exit=0.2):                  # default a2 = 25
 
         """Set up the potential. 
 

@@ -71,8 +71,8 @@ class Simulation:
             self.create_ensembles()
             logger.info("Done making the ensembles")
 
-            p = self.ensembles[0].engine.potential
-            p.plot_pot(self.intfs)
+            # p = self.ensembles[0].engine.potential
+            # p.plot_pot(self.intfs)
             # plt.close()
 
             logger.info("Creating dummy initial paths for the ensembles")
@@ -228,7 +228,7 @@ class Simulation:
             ens_set["name"] = "[0-']"
             logger.info("Making ensemble {}".format(ens_set["name"]))
         else:
-            ens_set["intfs"] = {"L": -np.infty,
+            ens_set["intfs"] = {"L": -np.inf,
                                 "M": None,  # Not even defined for 0-
                                 "R": self.intfs[0]}
             ens_set["ens_type"] = "state_A"
@@ -304,7 +304,7 @@ class Simulation:
             ens_set["id"] = len(self.intfs) + 1
             ens_set["intfs"] = {"L": self.intfs[-1],
                                 "M": None,  # Not even defined for N-
-                                "R": np.infty}
+                                "R": np.inf}
             ens_set["ens_type"] = "state_B"
             ens_set["name"] = f"[{len(self.intfs)-1}-]"
             logger.info("Making ensemble {}".format(ens_set["name"]))
