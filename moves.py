@@ -343,8 +343,8 @@ def kick_retis(ens):
             else:
                 sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.2)-0.0001, ens.engine.draw_velocities())
         elif ens.settings["dim"] == 2:
-            orth_min = 0.24
-            orth_max = 0.76
+            orth_min = 0
+            orth_max = 0.3
             if ens.id == 0:
                 sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), ens.engine.draw_velocities())
             elif ens.id == 1:
