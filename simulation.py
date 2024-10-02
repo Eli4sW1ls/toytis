@@ -71,8 +71,8 @@ class Simulation:
             self.create_ensembles()
             logger.info("Done making the ensembles")
 
-            # p = self.ensembles[0].engine.potential
-            # p.plot_pot(self.intfs)
+            p = self.ensembles[0].engine.potential
+            p.plot_pot(self.intfs)
             # plt.close()
 
             logger.info("Creating dummy initial paths for the ensembles")
