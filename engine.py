@@ -188,10 +188,10 @@ class ndLangevinEngine:
         # self.potential = Maze2D_color(mazefig="potentials/maze.png")
         # self.potential = Maze2D_color(mazefig="potentials/tunnelistarwalls.png")
         # self.potential = PotentialTwoChannels()
-        # self.potential = Ibuprofen()
+        self.potential = Ibuprofen()
         # self.potential = PotentialcFFS(4, np.pi/6)
         # self.potential = RectangularGridWithBarrierPotential(3*0.1, 9*0.1, 2000, (1.5*0.1, 4.5*0.1), -3.5*3/10, 0.2, 2*.1)
-        self.potential = RectangularGridWithBarrierPotential()
+        # self.potential = RectangularGridWithBarrierPotential()
         #self.potential = RectangularGridWithRuggedPotential()
         self.phasepoint = None
         self.mass = self.settings["mass"]

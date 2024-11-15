@@ -295,7 +295,7 @@ class RectangularGridWithBarrierPotential:
             i+=1
         c1 = ax1.pcolorfast((-.2*self.Ly, 1.2*self.Ly),(-.2*self.Lx, 1.2*self.Lx), x_y, vmax=2)
         for intf in intfs:
-            ax1.axvline(intf, ymin=-.2*self.Ly, ymax=1.2*self.Ly, color='red')
+            ax1.axvline(intf, ymin=-.1*self.Ly, ymax=1.1*self.Ly, color='orange', linewidth=0.5)
         fig1.colorbar(c1)
         plt.show()
 
