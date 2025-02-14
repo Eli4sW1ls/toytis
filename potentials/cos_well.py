@@ -19,7 +19,7 @@ class CosWellWalls(PotentialFunction):
         #             or V=0 for x>bright
         # deltaf -- height of bumps is deltaf, in units kBT
         # 
-        self.params = {'wall_dx': 0.1, 'k': 100., 'bleft': -0.25, 'bright': 0.25 ,'deltaf': 2.2,        # 1.2 default
+        self.params = {'wall_dx': 0.1, 'k': 100., 'bleft': -0.25, 'bright': 0.25 ,'deltaf': 1.2,        # 1.2 default
                         'height': 0.15, 'width': 0.1, 'db': 0}
 
     def potential(self, ph):

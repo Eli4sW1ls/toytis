@@ -203,7 +203,7 @@ class Ensemble:
         if status == "ACC":
             self.write_to_order_file(trial, simcycle, ptype, plen, status, gen, dir, trial.staridx)
         else:
-            self.write_to_order_file(Path(orders=[[0 for i in range(len(trial.orders[0]))]], ens_id=trial.ens_id), simcycle, ptype, plen, status, gen, dir, trial.staridx)
+            self.write_to_order_file(Path(orders=[[0 for i in range(len(trial.orders[0]))]], ens_id=trial.ens_id, phasepoints=[(0,0) for i in range(len(trial.orders[0]))]), simcycle, ptype, plen, status, gen, dir, trial.staridx)
 
 
     def jump_back(self, n=1):
@@ -590,8 +590,8 @@ class Ensemble:
         logger.info("Creating initial path for ensemble {}".format(self.name))
         if self.ens_type == "body_TIS":
             # For body ensembles, we start at the left interface
-            kick_retis(self)
-            return
+            # kick_retis(self)
+            # return
             N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["L"]*(1-np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["M"]*(1+np.sign(self.intfs["M"])*0.001)
@@ -669,7 +669,8 @@ class Ensemble:
         # We set the velocity of each point to zero.
         if self.settings["dim"] > 1:
             # maze_entry = 0.64
-            maze_entry = 0.353187488
+            # maze_entry = 0.353187488
+            maze_entry = 0.15
             phasepoints1 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(np.array([maze_entry]*(self.settings["dim"]-1) + [i]), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
             if self.simtype == "i*":

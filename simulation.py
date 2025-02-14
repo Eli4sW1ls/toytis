@@ -71,9 +71,9 @@ class Simulation:
             self.create_ensembles()
             logger.info("Done making the ensembles")
 
-            plt.rcParams['text.usetex'] = True
-            p = self.ensembles[0].engine.potential
-            p.plot_pot(self.intfs)
+            # plt.rcParams['text.usetex'] = True
+            # p = self.ensembles[0].engine.potential
+            # p.plot_pot(self.intfs)
             # p.plot_potential()
             # plt.close()
 
