@@ -268,7 +268,7 @@ class RectangularGridWithBarrierSlope:
 
         return f
 
-    def plot_potential(self, ax):
+    def plot_potential(self, ax=None):
         """Plots the potential.
 
         Parameters
@@ -277,11 +277,13 @@ class RectangularGridWithBarrierSlope:
             Axis on which to plot the potential
 
         """
+        if ax is None:
+            _, ax = plt.subplots()
         xvals, yvals = np.meshgrid(np.linspace(-.3*self.Ly, 1.3*self.Ly, 1000), 
                                    np.linspace(-.3*self.Lx, 1.3*self.Lx, 1000))
         potvals = np.array([[self.potential_and_force((np.array([x,y]),
             np.array([0,0])))[0] for x in yvals[:,0]] for y in xvals[0]]).T
-        g =ax.contourf(xvals, yvals, potvals)
+        g =ax.contourf(xvals, yvals, potvals, levels=10, vmin=-5, vmax=20)
         ax.contour(xvals, yvals, potvals, levels=[-5, 0, 5, 10, 15, 20], colors="black")
         return g
 
@@ -302,10 +304,10 @@ class RectangularGridWithBarrierSlope:
         fig1, ax1 = plt.subplots()
         x_y = np.zeros([500,500])
         i = 0
-        for y in np.linspace(-.02*self.Lx, 1.02*self.Lx, 500):
-            x_y[i] = np.array([self.potential_and_force((np.array([y, xx]), np.array([0,0])))[0] for xx in np.linspace(-.02*self.Ly, 1.02*self.Ly, 500)])
+        for y in np.linspace(-.2*self.Lx, 1.2*self.Lx, 500):
+            x_y[i] = np.array([self.potential_and_force((np.array([y, xx]), np.array([0,0])))[0] for xx in np.linspace(-.2*self.Ly, 1.2*self.Ly, 500)])
             i+=1
-        c1 = ax1.pcolorfast((-.02*self.Ly, 1.02*self.Ly),(-.02*self.Lx, 1.02*self.Lx), x_y, vmax=0.52)
+        c1 = ax1.pcolorfast((-.2*self.Ly, 1.2*self.Ly),(-.2*self.Lx, 1.2*self.Lx), x_y, vmax=0.52)
         for intf in intfs:
             ax1.axvline(intf, ymin=-.1*self.Ly, ymax=1.1*self.Ly, color='orange', linewidth=0.5)
         fig1.colorbar(c1)
