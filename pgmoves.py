@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import matplotlib.pyplot as plt
 
-from funcs import plot_paths, check_position
+from funcs import plot_paths, check_position, validate_staple
 from path import Path
 from moves import propagate, cut_extremal_phasepoints
 from order import OrderParameter
@@ -628,35 +628,19 @@ def pg_check_path(ens, path):
     elif (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]):
         return True, "LML"
 
-    start_turn = ens.intfs["all"][-1] <= path.orders[0][0] or path.orders[0][0] <= ens.intfs["all"][0]
-    start_extr = path.orders[0][0]
-    end_turn = ens.intfs["all"][-1] <= path.orders[-1][0] or path.orders[-1][0] <= ens.intfs["all"][0]
-    end_extr = path.orders[-1][0]
-    for idx in range(1,len(path.orders)-1):
-        if idx >= len(path.orders)-idx-1 and (not start_turn and not end_turn):
-            break
-
-        start_seg = [path.orders[i][0] for i in range(idx+1)]
-        end_seg = [path.orders[i][0] for i in range(len(path.orders)-1, len(path.orders)-idx-2, -1)]
-        if (not start_turn) and (start_seg[0] < start_seg[1] and start_seg[-1] <= ens.intfs["all"][np.where((ens.intfs["all"] > start_seg[0]) & (ens.intfs["all"] < start_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] <= max(start_seg),ens.intfs["all"] <= start_seg[0]))>=2)\
-            or (start_seg[0] > start_seg[1] and start_seg[-1] >= ens.intfs["all"][np.where((ens.intfs["all"] < start_seg[0]) & (ens.intfs["all"] > start_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] >= min(start_seg),ens.intfs["all"] >= start_seg[0]))>=2):
-            start_turn = True
-            start_extr = max(start_seg) if start_seg[0] < start_seg[1] else min(start_seg)
-        if (not end_turn) and (end_seg[0] < end_seg[1] and end_seg[-1] <= ens.intfs["all"][np.where((ens.intfs["all"] > end_seg[0]) & (ens.intfs["all"] < end_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] <= max(end_seg),ens.intfs["all"] <= end_seg[0]))>=2)\
-            or (end_seg[0] > end_seg[1] and end_seg[-1] >= ens.intfs["all"][np.where((ens.intfs["all"] < end_seg[0]) & (ens.intfs["all"] > end_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] >= min(end_seg),ens.intfs["all"] >= end_seg[0]))>=2):
-            end_turn = True
-            end_extr = max(end_seg) if end_seg[0] < end_seg[1] else min(end_seg)
-        if start_turn and end_turn: 
-            break
-    if not start_turn or not end_turn: 
-        return False, "***" 
+    # Use the new function to validate turns
+    valid_turns, start_extr, end_extr = validate_staple(ens, path)
+    
+    if not valid_turns:
+        return False, "***"
      
-    if not ens.id == 1 and check_position([start_extr] if start_extr < end_extr else [end_extr], ens.intfs["L"], ens.intfs["R"] if ens.id == 1 else ens.intfs["M"]) == "M":
+    if check_position([start_extr] if start_extr < end_extr else [end_extr], ens.intfs["L"], ens.intfs["M"])== "M" if ens.id != 1 else \
+        check_position([ordermin[0]], ens.intfs["L"], ens.intfs["R"])  == "M":
         ptype = "RMR"
-    elif check_position([end_extr] if start_extr < end_extr else [start_extr], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M":
+    elif check_position([end_extr] if start_extr < end_extr else [start_extr], ens.intfs["M"], ens.intfs["R"]) == "M" if ens.id != 1 else \
+        check_position([ordermax[0]], ens.intfs["L"], ens.intfs["R"]) == "M":
         ptype = "LML"
     else:
-        # ptype = path.meta[0]
         LtR = start_extr < end_extr
         ptype = "LMR" if LtR else "RML" 
 

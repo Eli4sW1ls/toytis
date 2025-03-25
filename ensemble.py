@@ -5,7 +5,7 @@ from filehandler import make_ens_dirs_and_files
 from engine import LangevinEngine, ndLangevinEngine
 from order import OrderParameter, OrderX
 import pickle as pkl
-from funcs import remove_lines_from_file
+from funcs import remove_lines_from_file, validate_staple
 from moves import kick_retis
 from pgmoves import kick_star
 
@@ -182,18 +182,20 @@ class Ensemble:
         # Now we write the data to the path ensemble file
         if trial.staridx == None:
             trial.staridx = (0,0)
-        if (ordermin[1] < ordermax[1] and ptype != "RML") or ptype == "LMR":
+        
+        if ptype == "LMR":
             dir = 1
-            if ptype == "RMR" and trial.staridx[0] > 1:
-                dir = -1
-            elif self.id > 2 and ptype == "LML" and trial.staridx[0] <= 1:
+        elif ptype == "RML":
+            dir = -1
+        elif status == "ACC" and self.id > 1:
+            _, start_ext, end_ext = validate_staple(self, trial)
+            if start_ext < end_ext:
+                dir = 1
+            else:
                 dir = -1
         else:
-            dir = -1
-            if self.id > 2 and ptype == "RMR" and trial.staridx[0] <= 1:
-                dir = 1
-            elif ptype == "LML" and trial.staridx[0] > 1:
-                dir = 1
+            dir = 0
+
         if trial.meta is not None:
             trial.meta[1] = dir
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,

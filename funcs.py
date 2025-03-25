@@ -24,6 +24,161 @@ def check_position(op, L, R):
     """
     return "M" if L <= op[0] <= R else "L" if op[0] < L else "R"        # Assume that 1st index of orderparameter list is the determining 1D order parameter
 
+def validate_staple(ens, path):
+    """
+    Optimized version for determining the validity of turns in a path.
+    
+    Parameters
+    ----------
+    ens : :py:class:`Ensemble` object
+        Ensemble to check the path against
+    path : :py:class:`Path` object
+        Path to check
+        
+    Returns
+    -------
+    bool
+        True if the path has valid turns, False otherwise
+    float
+        Extremal value at the start of the path
+    float
+        Extremal value at the end of the path
+    """
+    # Cache frequently accessed values
+    orders = path.orders
+    intfs = ens.intfs["all"]
+    start_op = orders[0][0]
+    end_op = orders[-1][0]
+    
+    # Pre-compute conditions for early exit
+    start_turn = start_op <= intfs[0] or start_op >= intfs[-1]
+    end_turn = end_op <= intfs[0] or end_op >= intfs[-1]
+    
+    # Initialize extremal values
+    start_extr = start_op
+    end_extr = end_op
+    
+    # Early exit if both turns are already valid
+    if start_turn and end_turn:
+        return True, start_extr, end_extr
+    
+    # Pre-compute additional values to avoid recalculation in loop
+    path_length = len(orders)
+    midpoint = path_length // 2
+    
+    next_val = orders[1][0] if path_length > 1 else start_op
+    prev_val = orders[-2][0] if path_length > 1 else end_op
+    
+    # Pre-compute direction for start and end segments
+    start_increasing = start_op < next_val
+    end_increasing = end_op < prev_val
+    
+    # Pre-compute relevant interfaces for start and end segments
+    # For start segment
+    if not start_turn:
+        start_relevant_intfs = []
+        min_val, max_val = (start_op, next_val) if start_increasing else (next_val, start_op)
+        for intf in intfs:
+            if min_val < intf < max_val:
+                start_relevant_intfs.append(intf)
+    else:
+        start_relevant_intfs = []
+    
+    # For end segment
+    if not end_turn:
+        end_relevant_intfs = []
+        min_val, max_val = (end_op, prev_val) if end_increasing else (prev_val, end_op)
+        for intf in intfs:
+            if min_val < intf < max_val:
+                end_relevant_intfs.append(intf)
+    else:
+        end_relevant_intfs = []
+    
+    # Only iterate until midpoint or until both turns are found
+    for idx in range(1, midpoint + 1):
+        if start_turn and end_turn:
+            break
+            
+        # Process start segment if needed
+        if not start_turn and start_relevant_intfs:
+            # Get current value
+            current_val = orders[idx][0]
+            
+            # Check if we've crossed required interfaces
+            if start_increasing:
+                # Check whether current value is below interface and we've crossed at least 2 interfaces
+                if current_val <= start_relevant_intfs[0]:
+                    # Count interfaces crossed using direct comparison instead of np operations
+                    interfaces_crossed = 0
+                    for intf in intfs:
+                        if (intf <= max(start_op, current_val)) != (intf <= start_op):
+                            interfaces_crossed += 1
+                    
+                    if interfaces_crossed >= 2:
+                        start_turn = True
+                        # Calculate extremal value more efficiently with direct loop
+                        start_extr = orders[0][0]
+                        for i in range(1, idx+1):
+                            if (start_increasing and orders[i][0] > start_extr) or \
+                               (not start_increasing and orders[i][0] < start_extr):
+                                start_extr = orders[i][0]
+            else:
+                # Similar logic for decreasing segment
+                if current_val >= start_relevant_intfs[0]:
+                    interfaces_crossed = 0
+                    for intf in intfs:
+                        if (intf >= min(start_op, current_val)) != (intf >= start_op):
+                            interfaces_crossed += 1
+                    
+                    if interfaces_crossed >= 2:
+                        start_turn = True
+                        # Calculate extremal value
+                        start_extr = orders[0][0]
+                        for i in range(1, idx+1):
+                            if (not start_increasing and orders[i][0] < start_extr) or \
+                               (start_increasing and orders[i][0] > start_extr):
+                                start_extr = orders[i][0]
+        
+        # Process end segment if needed
+        if not end_turn and end_relevant_intfs:
+            # Calculate index from the end
+            end_idx = path_length - idx - 1
+            current_val = orders[end_idx][0]
+            
+            if end_increasing:
+                if current_val <= end_relevant_intfs[0]:
+                    interfaces_crossed = 0
+                    for intf in intfs:
+                        if (intf <= max(end_op, current_val)) != (intf <= end_op):
+                            interfaces_crossed += 1
+                    
+                    if interfaces_crossed >= 2:
+                        end_turn = True
+                        # Calculate extremal value
+                        end_extr = orders[-1][0]
+                        for i in range(path_length-2, end_idx-1, -1):
+                            if (end_increasing and orders[i][0] > end_extr) or \
+                               (not end_increasing and orders[i][0] < end_extr):
+                                end_extr = orders[i][0]
+            else:
+                if current_val >= end_relevant_intfs[0]:
+                    interfaces_crossed = 0
+                    for intf in intfs:
+                        if (intf >= min(end_op, current_val)) != (intf >= end_op):
+                            interfaces_crossed += 1
+                    
+                    if interfaces_crossed >= 2:
+                        end_turn = True
+                        # Calculate extremal value
+                        end_extr = orders[-1][0]
+                        for i in range(path_length-2, end_idx-1, -1):
+                            if (not end_increasing and orders[i][0] < end_extr) or \
+                               (end_increasing and orders[i][0] > end_extr):
+                                end_extr = orders[i][0]
+                        
+    return start_turn and end_turn, start_extr, end_extr
+
+
 def plot_paths(paths, intfs=None, ax=None, start_ids=0, **kwargs):
     """ Plots the paths in the list paths, with optional interfaces intfs.
     
