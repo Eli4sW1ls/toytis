@@ -318,10 +318,10 @@ def pg_swap(ensembles, idx):
             if lower_path.staridx[0] == 1:
                 idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) if 
                               (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-                idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.orders)) 
+                idx1r = next(i for i in range(lower_path.staridx[1]+1, len(lower_path.orders)) 
                                 if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
             else:
-                idx1l = next(i for i in range(lower_path.staridx[0],-1, -1) if 
+                idx1l = next(i for i in range(lower_path.staridx[0]-1,-1, -1) if 
                               (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
                 idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
                                 if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
@@ -329,10 +329,10 @@ def pg_swap(ensembles, idx):
         elif lower_path.meta[0][0] == "L":
             idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) 
                 if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-            idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.orders))
+            idx1r = next(i for i in range(lower_path.staridx[1]+1, len(lower_path.orders))
                 if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
         else: 
-            idx1l = next(i for i in range(lower_path.staridx[0],-1, -1) if 
+            idx1l = next(i for i in range(lower_path.staridx[0]-1,-1, -1) if 
                      (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
             idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
                 if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))-1
@@ -344,23 +344,23 @@ def pg_swap(ensembles, idx):
             if upper_path.staridx[0] == 1:
                 idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) if 
                               (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
-                idx2r = next(i for i in range(upper_path.staridx[1], len(upper_path.orders)) 
+                idx2r = next(i for i in range(upper_path.staridx[1]+1, len(upper_path.orders)) 
                                 if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
             else:
-                idx2l = next(i for i in range(upper_path.staridx[0], -1, -1) if 
+                idx2l = next(i for i in range(upper_path.staridx[0]-1, -1, -1) if 
                               (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
                 idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders)) 
                                 if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         # distinguish LMR and RML
         elif upper_path.meta[0][0] == "L": # TODO: verschil bij nieuwe RMR
-            idx2l = next(i for i in range(upper_path.staridx[0], -1, -1) 
+            idx2l = next(i for i in range(upper_path.staridx[0]-1, -1, -1) 
                 if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
             idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders))
                 if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         else: 
             idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) 
                 if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            idx2r = next(i for i in range(upper_path.staridx[1], len(upper_path.orders)) 
+            idx2r = next(i for i in range(upper_path.staridx[1]+1, len(upper_path.orders)) 
                 if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         upper_path.staridx = (idx2l, idx2r)
         upper_path.meta[0] = ptype2
@@ -614,29 +614,54 @@ def pg_check_path(ens, path):
             True if the path is valid for the ensemble, False otherwise
 
     """
-    #TODO: add check if path has two turns that are far enough apart (or ends in A/B)
     ordermin = (min([op[0] for op in path.orders]), np.argmin([op[0] for op in path.orders]))
     ordermax = (max([op[0] for op in path.orders]), np.argmax([op[0] for op in path.orders]))
-    valid = (ordermin[0] < ens.intfs["all"][0] or ordermin[1] > 0) and \
-            (ordermax[0] > ens.intfs["all"][-1] or ordermax[1] < len(path.orders)-1) # check if valid "staple" path
-
-    if check_position([ordermin[0]], ens.intfs["L"], ens.intfs["R"] if ens.id == 1 else ens.intfs["M"]) == "M":
-        ptype = "RMR"
-    elif check_position([ordermax[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M":# or \
-        # (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]):
-        ptype = "LML"
-    elif np.all(np.asarray(path.orders) < [ens.intfs["L"]]) or np.all(np.asarray(path.orders) > [ens.intfs["R"]])\
+    if not ( (ordermin[0] < ens.intfs["all"][0] or 0 < ordermin[1] < len(path.orders)-1) and \
+        (ordermax[0] > ens.intfs["all"][-1] or 0 < ordermax[1] < len(path.orders)-1) )\
+        or (ens.id == 1 and min([op[0] for op in path.orders]) > ens.intfs["all"][0])\
+        \
+        or (np.all(np.asarray(path.orders) < [ens.intfs["L"]]) or np.all(np.asarray(path.orders) > [ens.intfs["R"]])\
             or check_position([ordermax[0]], ens.intfs["L"], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"]) == "M"\
-            or check_position([ordermin[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M":
-        return False, "***"
+            or check_position([ordermin[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M"):# check if valid "staple" path
+        return False, "***" # not a valid path
+    
+    elif (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]):
+        return True, "LML"
+
+    start_turn = ens.intfs["all"][-1] <= path.orders[0][0] or path.orders[0][0] <= ens.intfs["all"][0]
+    start_extr = path.orders[0][0]
+    end_turn = ens.intfs["all"][-1] <= path.orders[-1][0] or path.orders[-1][0] <= ens.intfs["all"][0]
+    end_extr = path.orders[-1][0]
+    for idx in range(1,len(path.orders)-1):
+        if idx >= len(path.orders)-idx-1 and (not start_turn and not end_turn):
+            break
+
+        start_seg = [path.orders[i][0] for i in range(idx+1)]
+        end_seg = [path.orders[i][0] for i in range(len(path.orders)-1, len(path.orders)-idx-2, -1)]
+        if (not start_turn) and (start_seg[0] < start_seg[1] and start_seg[-1] <= ens.intfs["all"][np.where((ens.intfs["all"] > start_seg[0]) & (ens.intfs["all"] < start_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] <= max(start_seg),ens.intfs["all"] <= start_seg[0]))>=2)\
+            or (start_seg[0] > start_seg[1] and start_seg[-1] >= ens.intfs["all"][np.where((ens.intfs["all"] < start_seg[0]) & (ens.intfs["all"] > start_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] >= min(start_seg),ens.intfs["all"] >= start_seg[0]))>=2):
+            start_turn = True
+            start_extr = max(start_seg) if start_seg[0] < start_seg[1] else min(start_seg)
+        if (not end_turn) and (end_seg[0] < end_seg[1] and end_seg[-1] <= ens.intfs["all"][np.where((ens.intfs["all"] > end_seg[0]) & (ens.intfs["all"] < end_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] <= max(end_seg),ens.intfs["all"] <= end_seg[0]))>=2)\
+            or (end_seg[0] > end_seg[1] and end_seg[-1] >= ens.intfs["all"][np.where((ens.intfs["all"] < end_seg[0]) & (ens.intfs["all"] > end_seg[1]))[0][0]] and np.count_nonzero(np.logical_xor(ens.intfs["all"] >= min(end_seg),ens.intfs["all"] >= end_seg[0]))>=2):
+            end_turn = True
+            end_extr = max(end_seg) if end_seg[0] < end_seg[1] else min(end_seg)
+        if start_turn and end_turn: 
+            break
+    if not start_turn or not end_turn: 
+        return False, "***" 
+     
+    if not ens.id == 1 and check_position([start_extr] if start_extr < end_extr else [end_extr], ens.intfs["L"], ens.intfs["R"] if ens.id == 1 else ens.intfs["M"]) == "M":
+        ptype = "RMR"
+    elif check_position([end_extr] if start_extr < end_extr else [start_extr], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M":
+        ptype = "LML"
     else:
         # ptype = path.meta[0]
-        LtR = ordermin[1] < ordermax[1]
+        LtR = start_extr < end_extr
         ptype = "LMR" if LtR else "RML" 
 
     # Conditions
-    valid = valid and \
-            (len(ens.start_conditions) == 0 or ptype[0] in ens.start_conditions) and \
+    valid = (len(ens.start_conditions) == 0 or ptype[0] in ens.start_conditions) and \
             (len(ens.end_conditions) == 0 or ptype[2] in ens.end_conditions) and \
             (len(ens.cross_conditions) == 0 or ptype[1] in ens.cross_conditions) and \
             ptype not in ens.illegal_pathtypes
