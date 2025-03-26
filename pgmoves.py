@@ -302,6 +302,8 @@ def pg_swap(ensembles, idx):
     """
     lower_path = ensembles[idx].paths[0]
     upper_path = ensembles[idx+1].paths[0]
+    if upper_path.meta[0] == "RMR" or lower_path.meta[0] == "LML":
+        return "NCR", (upper_path, "***"), (lower_path, "***")
     is_path1, ptype1 = pg_check_path(ensembles[idx+1], lower_path)
     is_path2, ptype2 = pg_check_path(ensembles[idx], upper_path) 
     if ptype1 in ensembles[idx+1].illegal_pathtypes:
