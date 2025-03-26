@@ -616,16 +616,15 @@ def pg_check_path(ens, path):
     """
     ordermin = (min([op[0] for op in path.orders]), np.argmin([op[0] for op in path.orders]))
     ordermax = (max([op[0] for op in path.orders]), np.argmax([op[0] for op in path.orders]))
-    if not ( (ordermin[0] < ens.intfs["all"][0] or 0 < ordermin[1] < len(path.orders)-1) and \
-        (ordermax[0] > ens.intfs["all"][-1] or 0 < ordermax[1] < len(path.orders)-1) )\
-        or (ens.id == 1 and min([op[0] for op in path.orders]) > ens.intfs["all"][0])\
+    if (ens.id == 1 and ordermin[0] > ens.intfs["all"][0])\
         \
         or (np.all(np.asarray(path.orders) < [ens.intfs["L"]]) or np.all(np.asarray(path.orders) > [ens.intfs["R"]])\
             or check_position([ordermax[0]], ens.intfs["L"], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"]) == "M"\
             or check_position([ordermin[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M"):# check if valid "staple" path
         return False, "***" # not a valid path
     
-    elif (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]):
+    elif (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]\
+          and ordermax[0] < ens.intfs["R"]) or (ens.id == 2 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"] and ordermax[0] >= ens.intfs["M"]): # max already checked before
         return True, "LML"
 
     # Use the new function to validate turns
@@ -634,10 +633,10 @@ def pg_check_path(ens, path):
     if not valid_turns:
         return False, "***"
      
-    if check_position([start_extr] if start_extr < end_extr else [end_extr], ens.intfs["L"], ens.intfs["M"])== "M" if ens.id != 1 else \
+    if check_position([start_extr] if start_extr < end_extr else [end_extr], ens.intfs["L"], ens.intfs["M"])== "M" if ens.id > 2 else \
         check_position([ordermin[0]], ens.intfs["L"], ens.intfs["R"])  == "M":
         ptype = "RMR"
-    elif check_position([end_extr] if start_extr < end_extr else [start_extr], ens.intfs["M"], ens.intfs["R"]) == "M" if ens.id != 1 else \
+    elif check_position([end_extr] if start_extr < end_extr else [start_extr], ens.intfs["M"], ens.intfs["R"]) == "M" if ens.id > 2 else \
         check_position([ordermax[0]], ens.intfs["L"], ens.intfs["R"]) == "M":
         ptype = "LML"
     else:
