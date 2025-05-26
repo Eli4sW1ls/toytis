@@ -1,4 +1,26 @@
-# Usage example:
+# This Gnuplot script visualizes path ensemble data from PyRETIS simulations.
+# It plots order parameters for paths, highlighting start, end, min, and max points.
+# Interfaces can also be displayed if found in RST or logging files.
+#
+# Usage:
+#   gnuplot -e "VAR1=value1;VAR2=value2" plot_paths.gp
+#
+# Available variables (passed via -e):
+#   MINOP:    Minimum order parameter value for a path to be included.
+#             Paths are filtered based on their recorded min/max OP values
+#             from pathensemble.txt (columns 10 and 11).
+#             Default: -99999.0 (effectively no lower bound).
+#   MAXOP:    Maximum order parameter value for a path to be included.
+#             Default: 99999.0 (effectively no upper bound).
+#   MAXPATHS: Maximum number of paths to plot. If more paths match MINOP/MAXOP,
+#             a subset is selected (randomly or sequentially).
+#             Default: 1000000.
+#   RANDOM:   Set to 1 to select paths randomly if the number of matching paths
+#             exceeds MAXPATHS. Set to 0 for sequential selection (first N paths).
+#             Default: 1 (random selection).
+#
+# Example: Plot up to 100 random paths where the path's order parameter
+#          stayed between -1.0 and 1.0:
 #   gnuplot -e "MINOP=-1.0;MAXOP=1.0;MAXPATHS=100;RANDOM=1" plot_paths.gp
 
 if (!exists("MINOP")) MINOP=-99999.0

@@ -90,8 +90,8 @@ class Path:
         if self.ens_id is not None and not isinstance(self.ens_id, int):
             raise TypeError("ens_id must be an integer or None")
             
-        if self.meta is not None and not isinstance(self.meta, dict):
-            raise TypeError("metadata must be a dictionary or None")
+        if self.meta is not None and not isinstance(self.meta, list):
+            raise TypeError("metadata must be a list or None")
 
     def copy_path(self):
         """Returns a deep copy of the current path.

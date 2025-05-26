@@ -1,5 +1,4 @@
 sim/
 __pycache__/
-sim*/
-toysim/
+simulations/sim*
 longmd_*/

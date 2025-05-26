@@ -61,7 +61,7 @@ class FlatWall1D():
             Description of the force field.
         """
         # these are the default parameters
-        self.params = {'xleft': -0.2, 'xright': 1.4, 'k': 100.}
+        self.params = {'xleft': -0.2, 'xright': 1., 'k': 100.}
 
     def potential(self, ph):
         """Evaluate the potential.

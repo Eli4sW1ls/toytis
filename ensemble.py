@@ -262,9 +262,9 @@ class Ensemble:
         else:
             # For rejected paths, write minimal data with zero order parameters
             dummy_path = Path(
-                orders=[[0 for i in range(len(trial.orders[0]))]], 
+                orders=[[0 for __ in range(len(trial.orders[0]))] for _ in range(1)], 
                 ens_id=trial.ens_id, 
-                phasepoints=[(0, 0) for i in range(len(trial.orders[0]))]
+                phasepoints=[tuple([0 for __ in range(2*len(trial.orders[0]))]) for _ in range(1)]
             )
             self.write_to_order_file(dummy_path, simcycle, ptype, plen, status, gen, dir, trial.staridx)
 
