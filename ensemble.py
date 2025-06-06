@@ -190,6 +190,7 @@ class Ensemble:
             Whether to update the last_path and paths attributes. Default is True.
             Some moves handle path management themselves.
         """
+        dir=0
         # Extract path type if provided as tuple (path, type)
         if isinstance(trial, tuple):
             ptype = trial[1]
@@ -215,9 +216,29 @@ class Ensemble:
                     self.paths.pop()
                     
             # Update MD cycle counter based on simulation type and generation method
-            if self.simtype == "retis" or self.simtype == "i*":
+            if self.simtype == "retis":
                 if gen == "sh":
                     self.cycle_md += 1
+            elif self.simtype == "i*":
+                if gen == "sh":
+                    self.cycle_md += 1
+    
+                # Determine path direction
+                if ptype == "LMR":
+                    dir = 1  # Forward direction
+                elif ptype == "RML":
+                    dir = -1  # Backward direction
+                elif status == "ACC" and self.id > 1:
+                    # For accepted paths in non-first ensembles, determine direction from staple validation
+                    _, start_ext, end_ext = validate_staple(self, trial)
+                    if start_ext < end_ext:
+                        dir = 1
+                    else:
+                        dir = -1
+                    
+                # Update path metadata with direction information
+                if trial.meta is not None:
+                    trial.meta[1] = dir
             elif self.simtype == "repptis":
                 if gen in ["s-", "s+", "sh"]:
                     self.cycle_md += 1
@@ -232,25 +253,6 @@ class Ensemble:
         if trial.staridx is None:
             trial.staridx = (0, 0)
         
-        # Determine path direction
-        if ptype == "LMR":
-            dir = 1  # Forward direction
-        elif ptype == "RML":
-            dir = -1  # Backward direction
-        elif status == "ACC" and self.id > 1:
-            # For accepted paths in non-first ensembles, determine direction from staple validation
-            _, start_ext, end_ext = validate_staple(self, trial)
-            if start_ext < end_ext:
-                dir = 1
-            else:
-                dir = -1
-        else:
-            dir = 0  # Unknown/neutral direction
-            
-        # Update path metadata with direction information
-        if trial.meta is not None:
-            trial.meta[1] = dir
-            
         # Write path data to ensemble file
         self.write_to_pe_file(simcycle, self.cycle_acc, self.cycle_md, ptype,
                               plen, status, gen, ordermin, ordermax, dir, trial.staridx)
@@ -332,7 +334,7 @@ class Ensemble:
                 plen, status, gen,
                 ordermin[0], ordermax[0], ordermin[1], ordermax[1], staridx[0], staridx[1], dir, 1.) + "\n")
     
-    def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir, staridx):
+    def write_to_order_file(self, path, simcycle, ptype, plen, status, gen, dir=0, staridx=(0,0)):
         """
         Write order parameter data to the order.txt file.
         

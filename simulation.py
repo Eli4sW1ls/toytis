@@ -488,6 +488,9 @@ class Simulation:
                 except KeyboardInterrupt:
                     print('Resuming...')
                     continue
+        if self.cycle >= self.max_cycles:
+            logger.info("Reached maximum cycles (%d). Stopping simulation.", self.max_cycles)
+            logger.info("Total amount of MD steps: %d", sum(ens.engine.mdsteps for ens in self.ensembles))
 
     @classmethod
     def load_simulation(cls, filename):

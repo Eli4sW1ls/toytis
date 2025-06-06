@@ -107,9 +107,9 @@ class LangevinEngine:
         # Uncomment other options or add mechanism to select potential via settings
         # self.potential = Potential()
         # self.potential = CosBumpSeriesWalls()
-        self.potential = FlatWall1D()
+        # self.potential = FlatWall1D()
         # self.potential = CosDipMetastableWalls()
-        # self.potential = CosWellWalls()
+        self.potential = CosWellWalls()
         
         # Initialize phase point and physical constants
         self.phasepoint = None
@@ -203,7 +203,6 @@ class LangevinEngine:
             
             # In overdamped regime, velocity is proportional to random forces
             v_new = rands[0]
-            return (x_new, v_new)
         else:
             # Regular Langevin dynamics using BBK integrator
             # Generate correlated random numbers for position and velocity updates
@@ -223,10 +222,10 @@ class LangevinEngine:
             # Complete velocity update: v_new = v' + b₂F_new
             v_new = v2 + self.b2 * force
 
-            # Increment MD step counter
-            self.mdsteps += 1
+        # Increment MD step counter
+        self.mdsteps += 1
 
-            return (x_new, v_new)
+        return (x_new, v_new)
 
     def draw_velocities(self):
         """
@@ -444,7 +443,6 @@ class ndLangevinEngine:
             
             # In overdamped regime, velocity is proportional to random force
             v_new = rands  
-            return (x_new, v_new)
         else:
             # Regular Langevin dynamics using BBK integrator
             # Generate correlated random numbers for position and velocity updates
@@ -466,9 +464,9 @@ class ndLangevinEngine:
             # Complete velocity update: v_new = v' + b₂F_new
             v_new = v2 + self.b2 * force_new
 
-            self.mdsteps += 1
+        self.mdsteps += 1
 
-            return (x_new, v_new)
+        return (x_new, v_new)
     
     def draw_velocities(self):
         """

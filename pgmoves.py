@@ -75,6 +75,7 @@ def pg_shooting_move(ens, level=0):
         # Handle the case where no eligible shooting points are found
         n_ph = 0
         print(f"No eligible shooting points found in ensemble {ens.id}")
+        print(f"Path: {path.orders}")
     
     # Randomly select one of the possible shooting points
     sh_id = np.random.choice(poss_sh)
@@ -256,7 +257,7 @@ def pg_swap_zero(ensembles):
     # phasepoint forwards in time. Remember, the shoot phasepoint is already
     # present in ph1 and op1 via cut_extremal_phasepoints.
     ph1, op1, sh1 = cut_extremal_phasepoints(ens0, 1.)
-    if op1[-1][0] <= ens0.intfs["L"]:
+    if op1[-1][0] <= ens0.intfs["L"] or op1[-1][0] >= ens0.intfs["R"]:
         logger.debug("Swap not allowed")
         return "SWD", ens0.paths[0], ens1.paths[0]
     status1, tuple1 = propagate(ens1, sh1, 1., ens1.max_len - 2)
@@ -277,7 +278,7 @@ def pg_swap_zero(ensembles):
         ext_status, ext_tuple = ext_propagate(ens1, new_path1.phasepoints[-1], 1.,
                                 ens1.max_len-len(new_path1.orders))
         if ext_status != "ACC":
-            logger.debug("Forwards extension in [0^+] not successful: {}".format(
+            logger.debug("Forwards extension in [0^*] not successful: {}".format(
                 ext_status))
             return ext_status, ens1.paths[0], (Path(ph1 + tuple1[0] + ext_tuple[0],
                                             op1 + tuple1[1] + ext_tuple[1],
@@ -288,6 +289,12 @@ def pg_swap_zero(ensembles):
                          [ptype1, 0, ext_status, sh1[0]])
     else:
         new_path1.meta = [ptype1, 0, "ACC", op1[-1]]
+
+    valid1, ptype1 = pg_check_path(ens1, new_path1)
+    if not valid1:
+        logger.warning("New path in [0^*] doesn't satisfy ens check conditions")
+        return "NCR", ens1.paths[0], (new_path1, ptype1)
+
     new_path1.staridx = (1, len(tuple1[1]))
     if ptype1 in ens1.illegal_pathtypes:
         logger.info("Illegal pathtype {} for primed ensemble".format(ptype1))
@@ -366,64 +373,132 @@ def pg_swap(ensembles, idx):
         return "ILL", (lower_path, ptype1), (upper_path, ptype2)
     # plot_paths([lower_path])
     # plot_paths([upper_path])
+    # Only proceed if both paths are valid for their target ensembles
     if is_path1 and is_path2:
-        # swap i->i+1
-        if lower_path.meta[0] == "RMR": # special case with RMR
-            if lower_path.staridx[0] == 1:
-                idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) if 
-                              (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-                idx1r = next(i for i in range(lower_path.staridx[1]+1, len(lower_path.orders)) 
-                                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
-            else:
-                idx1l = next(i for i in range(lower_path.staridx[0]-1,-1, -1) if 
-                              (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
+        try:
+            #-----------------------------------------------------------------
+            # PART 1: Calculate valid star region indices for lower path
+            # when moved to the upper ensemble (idx+1)
+            #-----------------------------------------------------------------
+            
+            # Determine star region based on path type and characteristics
+            if lower_path.staridx[0] == 1 and lower_path.staridx[1] == len(lower_path.orders)-1:
+                # Full path case (entire path is in star region)
+                # Find first valid point outside interface region, going backward from end
+                idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) 
+                    if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") + 1
+                # Find first valid point outside interface region, going forward from end
+                idx1r = next(i for i in range(lower_path.staridx[1], len(lower_path.orders)) 
+                    if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") - 1
+            
+            elif lower_path.meta[0] == "RMR":  # Special handling for right-middle-right paths
+                if lower_path.staridx[0] == 1:  # Star region starts at beginning of path
+                    if lower_path.staridx[1] == len(lower_path.orders)-2:  # Star region ends near end of path
+                        # Choose search direction based on order parameter direction
+                        if lower_path.orders[0][0] >= lower_path.orders[-1][0]:  # First op is larger than last op, extend towards first
+                            idx1l = next(i for i in range(lower_path.staridx[0]-1, -1, -1)
+                                        if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") + 1
+                            idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders))
+                                        if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") - 1
+                        else:  # First op is smaller than last op, extend towards last
+                            idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) if 
+                                        (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")) + 1
+                            idx1r = next(i for i in range(lower_path.staridx[1]+1, len(lower_path.orders)) 
+                                        if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") - 1
+                    else:  # Star region ends earlier in path
+                        idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) if 
+                                (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")) + 1
+                        idx1r = next(i for i in range(lower_path.staridx[1]+1, len(lower_path.orders)) 
+                                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") - 1
+                else:  # Star region starts later in path
+                    idx1l = next(i for i in range(lower_path.staridx[0]-1, -1, -1) if 
+                                (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")) + 1
+                    idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
+                                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") - 1
+            
+            # Handle paths by their starting direction (L = starting from left, R = starting from right)
+            elif lower_path.meta[0][0] == "L":  # LMR or LML paths
+                idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) 
+                    if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")) + 1
+                idx1r = next(i for i in range(lower_path.staridx[1]+1, len(lower_path.orders))
+                    if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M") - 1
+            else:  # RML path
+                idx1l = next(i for i in range(lower_path.staridx[0]-1, -1, -1) if 
+                        (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")) + 1
                 idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
-                                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
-        # distinguish LMR and RML
-        elif lower_path.meta[0][0] == "L":
-            idx1l = next(i for i in range(lower_path.staridx[1], -1, -1) 
-                if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-            idx1r = next(i for i in range(lower_path.staridx[1]+1, len(lower_path.orders))
-                if check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")-1
-        else: 
-            idx1l = next(i for i in range(lower_path.staridx[0]-1,-1, -1) if 
-                     (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))+1
-            idx1r = next(i for i in range(lower_path.staridx[0], len(lower_path.orders)) 
-                if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M"))-1
+                    if (check_position(lower_path.orders[i], ensembles[idx+1].intfs["L"], ensembles[idx+1].intfs["R"]) != "M")) - 1
+        except:
+            # Log exception details and reject the swap if star region can't be determined
+            logger.exception("Error determining star region for lower path in upper ensemble")
+            return "NCR", (upper_path, ptype2), (lower_path, ptype1)
+            
+        try:
+            #-----------------------------------------------------------------
+            # PART 2: Calculate valid star region indices for upper path
+            # when moved to the lower ensemble (idx)
+            #-----------------------------------------------------------------
+            
+            if upper_path.meta[0] == "LML":  # Special handling for left-middle-left paths
+                if upper_path.staridx[0] == 1:  # Star region starts at beginning of path
+                    if upper_path.staridx[1] == len(upper_path.orders)-2:  # Star region ends near end of path
+                        # Choose search direction based on order parameter direction
+                        if upper_path.orders[0][0] <= upper_path.orders[-1][0]:  # First op is smaller than last op, extend towards first 
+                            idx2l = next(i for i in range(upper_path.staridx[0]-1, -1, -1)
+                                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") + 1
+                            idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders)) 
+                                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") - 1
+                        else:  # First op is larger than last op, extend towards last
+                            idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) if 
+                                        (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")) + 1
+                            idx2r = next(i for i in range(upper_path.staridx[1]+1, len(upper_path.orders)) 
+                                        if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") - 1
+                    else:  # Star region ends earlier in path
+                        idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) if 
+                                    (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")) + 1
+                        idx2r = next(i for i in range(upper_path.staridx[1]+1, len(upper_path.orders)) 
+                                    if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") - 1
+                else:  # Star region starts later in path
+                    idx2l = next(i for i in range(upper_path.staridx[0]-1, -1, -1) if 
+                                (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")) + 1
+                    idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders)) 
+                                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") - 1
+            
+            # Handle paths by their starting direction
+            elif upper_path.meta[0][0] == "L":  # LMR paths
+                idx2l = next(i for i in range(upper_path.staridx[0]-1, -1, -1) 
+                    if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") + 1
+                idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders))
+                    if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") - 1
+            else:  # RMR or RML paths
+                idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) 
+                    if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") + 1
+                idx2r = next(i for i in range(upper_path.staridx[1]+1, len(upper_path.orders)) 
+                    if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M") - 1
+        except:
+            # Log exception details and reject the swap if star region can't be determined
+            logger.exception("Error determining star region for upper path in lower ensemble")
+            return "NCR", (upper_path, ptype2), (lower_path, ptype1)
+    else:
+        # Reject swap if either path doesn't meet basic requirements for target ensemble
+        return "NCR", (upper_path, ptype2), (lower_path, ptype1)
+    
+    #-----------------------------------------------------------------
+    # PART 3: Finalize the swap if star regions are valid
+    #-----------------------------------------------------------------
+    
+    # Ensure the star region indices are valid (start index <= end index)
+    if idx1l <= idx1r and idx2l <= idx2r:
+        # Update star region indices and path types for both paths
         lower_path.staridx = (idx1l, idx1r)
         lower_path.meta[0] = ptype1
-
-        # swap i+1->i
-        if upper_path.meta[0] == "LML":  # special case for LML
-            if upper_path.staridx[0] == 1:
-                idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) if 
-                              (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
-                idx2r = next(i for i in range(upper_path.staridx[1]+1, len(upper_path.orders)) 
-                                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
-            else:
-                idx2l = next(i for i in range(upper_path.staridx[0]-1, -1, -1) if 
-                              (check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M"))+1
-                idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders)) 
-                                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
-        # distinguish LMR and RML
-        elif upper_path.meta[0][0] == "L": # TODO: verschil bij nieuwe RMR
-            idx2l = next(i for i in range(upper_path.staridx[0]-1, -1, -1) 
-                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            idx2r = next(i for i in range(upper_path.staridx[0], len(upper_path.orders))
-                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
-        else: 
-            idx2l = next(i for i in range(upper_path.staridx[1], -1, -1) 
-                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")+1
-            idx2r = next(i for i in range(upper_path.staridx[1]+1, len(upper_path.orders)) 
-                if check_position(upper_path.orders[i], ensembles[idx].intfs["L"], ensembles[idx].intfs["R"]) != "M")-1
         upper_path.staridx = (idx2l, idx2r)
         upper_path.meta[0] = ptype2
-
-        # plot_paths([lower_path])
-        # plot_paths([upper_path])
-        # plt.close("all")
+        # Accept the swap
         return "ACC", (upper_path, ptype2), (lower_path, ptype1)
     else:
+        # Reject if determined star regions are invalid
+        logger.error("Swap indices out of bounds: lower_path[%d:%d], upper_path[%d:%d]", 
+                     idx1l, idx1r, idx2l, idx2r)
         return "NCR", (upper_path, ptype2), (lower_path, ptype1)
     
 def kick_star(ens):
@@ -648,7 +723,7 @@ def ext_propagate(ens, ext_pt, reverse, maxlen):
         # Check if maximum path length reached
         if run_len >= maxlen:
             logger.debug(f"!! Path reached max_len ({run_len} >= {maxlen}). !!")
-            print(f"!! Path in ensemble {ens.ens_id} reached max_len ({run_len} >= {maxlen}). !!")
+            print(f"!! Path in ensemble {ens.id} reached max_len ({run_len} >= {maxlen}). !!")
             status = conds['rej_maxlen']
             run_worthy = False
         else:
@@ -776,8 +851,11 @@ def pg_check_path(ens, path):
     if (ens.id == 1 and ordermin[0] > ens.intfs["all"][0])\
         \
         or (np.all(np.asarray(path.orders) < [ens.intfs["L"]]) or np.all(np.asarray(path.orders) > [ens.intfs["R"]])\
+            or not np.any(np.logical_and([ens.intfs["L"]] < np.asarray(path.orders), np.asarray(path.orders) < [ens.intfs["R"]]))\
             or check_position([ordermax[0]], ens.intfs["L"], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"]) == "M"\
-            or check_position([ordermin[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M"):# check if valid "staple" path
+            or check_position([ordermin[0]], ens.intfs["L"] if ens.id == 1 else ens.intfs["M"], ens.intfs["R"]) == "M")\
+            or (ens.id == 1 and not (not path.orders[1][0] >= ens.intfs["R"] or not path.orders[-2][0] >= ens.intfs["R"]))\
+            or (ens.id == len(ens.intfs["all"])-1 and not (not path.orders[1][0] <= ens.intfs["L"] or not path.orders[-2][0] <= ens.intfs["L"])):# check if valid "staple" path
         return False, "***" # not a valid path
     
     elif (ens.id == 1 and path.orders[-1][0] < ens.intfs["L"] and path.orders[0][0] < ens.intfs["L"]\
