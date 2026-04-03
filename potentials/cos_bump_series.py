@@ -19,13 +19,13 @@ class CosBumpSeriesWalls():
         #             or V=0 for x>bright
         # deltaf -- height of bumps is deltaf, in units kBT
         # nbump -- number of bumps
-        self.params = {'xleft': -0.2, 
-                       'xright': 0.2, 
+        self.params = {'xleft': -0.4, 
+                       'xright': 0.4, 
                        'k': 100., 
-                       'bleft': -0.1, 
-                       'bright': 0.1 ,
+                       'bleft': -0.3, 
+                       'bright': -0.1 ,
                        'deltaf': 1,
-                        'nbump': 2}
+                        'nbump': 3}
 
     def potential(self, ph):
 

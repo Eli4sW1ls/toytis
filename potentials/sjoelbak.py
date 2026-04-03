@@ -11,12 +11,13 @@ logger.addHandler(logging.NullHandler())
 
 
 class RectangularGridWithBarrierPotential:
-    def __init__(self, Lx=0.3, Ly=0.9, k=2000, M=(0.15, 0.45), r=-1.0, A=0.2, L=0.2):
-        
-        
+    def __init__(self, Lx=0.3, Ly=0.9, k=2000, M=(0.15, 0.45), r=-1.0, A=0.3, L=0.2,
+                 slope_start_y=0.1, slope_end_y=0.825, slope_strength_y=0.2):
+
+
         """
         Initialize the potential with given parameters.
-        
+
         Parameters
         ----------
         Lx : float
@@ -33,6 +34,12 @@ class RectangularGridWithBarrierPotential:
             The amplitude of the barrier potential.
         L : float
             The length scale for the barrier potential.
+        slope_start_y : float
+            The y-coordinate where the gradual slope begins (after state A).
+        slope_end_y : float
+            The y-coordinate where the gradual slope ends (before state B).
+        slope_strength_y : float
+            The strength of the slope in the y direction.
         """
         self.Lx = Lx
         self.Ly = Ly
@@ -41,6 +48,9 @@ class RectangularGridWithBarrierPotential:
         self.r = r
         self.A = A
         self.L = L
+        self.slope_start_y = slope_start_y
+        self.slope_end_y = slope_end_y
+        self.slope_strength_y = slope_strength_y
         
     def potential_and_force(self, ph):
         """
@@ -85,7 +95,7 @@ class RectangularGridWithBarrierPotential:
         
         # Calculate the distance to the line
         a = self.r
-        b = self.M[0] - self.r * self.M[1]
+        b = self.M[1] - self.r * self.M[0]
         D = abs(a * x[0] - x[1] + b) / np.sqrt(a**2 + 1)
         Dsgn = np.sign(x[1] - a * x[0] - b)
         
@@ -125,6 +135,21 @@ class RectangularGridWithBarrierPotential:
             f += dV_dD2 * np.array([dD2_dx, dD2_dy])
 
         f += np.array([0., -0.2]) # gravity
+
+        # Global slope potential (only in y-direction, between states A and B)
+        if x[1] < self.slope_start_y:
+            # Below state A: no slope
+            pass
+        elif x[1] <= self.slope_end_y:
+            # Between states A and B: linear slope
+            slope_pot = self.slope_strength_y * ((x[1] - self.slope_start_y) / (self.slope_end_y - self.slope_start_y))
+            pot += slope_pot
+
+            # Force from global slope (negative gradient)
+            f[1] += -self.slope_strength_y / (self.slope_end_y - self.slope_start_y)
+        else:
+            # Above state B: constant potential (no force)
+            pot += self.slope_strength_y
 
         return pot, f
     
@@ -181,6 +206,18 @@ class RectangularGridWithBarrierPotential:
 
         if D2 < L2 / 4:
             pot += A2 * np.cos(2 * np.pi * D2 / L2)
+
+        # Global slope potential (only in y-direction, between states A and B)
+        if x[1] < self.slope_start_y:
+            # Below state A: no slope
+            pass
+        elif x[1] <= self.slope_end_y:
+            # Between states A and B: linear slope
+            slope_pot = self.slope_strength_y * ((x[1] - self.slope_start_y) / (self.slope_end_y - self.slope_start_y))
+            pot += slope_pot
+        else:
+            # Above state B: constant potential (no force)
+            pot += self.slope_strength_y
 
         return pot
     
@@ -253,6 +290,17 @@ class RectangularGridWithBarrierPotential:
             f += dV_dD2 * np.array([dD2_dx, dD2_dy])
 
         f += np.array([0., -0.2]) # gravity
+
+        # Global slope force (only in y-direction, between states A and B)
+        if x[1] < self.slope_start_y:
+            # Below state A: no slope
+            pass
+        elif x[1] <= self.slope_end_y:
+            # Between states A and B: linear slope
+            f[1] += -self.slope_strength_y / (self.slope_end_y - self.slope_start_y)
+        else:
+            # Above state B: constant potential, no force
+            pass
 
         return f
 

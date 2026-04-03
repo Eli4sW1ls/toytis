@@ -421,7 +421,7 @@ def kick_retis(ens):
                       ens.engine.draw_velocities())
         elif ens.settings["dim"] == 2:
             # 2D case: position depends on ensemble ID, adds orthogonal component
-            orth_min = 0
+            orth_min = 0.
             orth_max = 0.3
             orth_coord = (orth_max-orth_min)*np.random.rand()+orth_min
             
