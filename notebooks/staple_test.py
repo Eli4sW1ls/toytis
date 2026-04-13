@@ -16,8 +16,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from simulation import Simulation
-
 
 DEFAULT_WORK_DIR = Path("simulations") / "sim_script"
 
@@ -230,6 +228,7 @@ def main() -> None:
     work_dir = prepare_run_directory(project_root, project_root / args.work_dir)
     os.chdir(work_dir)
     print(os.getcwd())
+    from simulation import Simulation
 
     intfs = args.interfaces
 
