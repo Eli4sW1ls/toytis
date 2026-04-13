@@ -22,10 +22,10 @@ from simulation import Simulation
 DEFAULT_WORK_DIR = Path("simulations") / "sim_script"
 
 
-def build_istar_settings_1d(intfs: list[float]) -> dict:
-    return {
+def build_settings_1d(intfs: list[float], simtype: str) -> dict:
+    settings = {
         "interfaces": intfs,
-        "simtype": "i*",
+        "simtype": "i*" if simtype == "istar" else simtype,
         "method": "load",
         "max_len": 200000,
         "dt": 0.005,
@@ -40,14 +40,19 @@ def build_istar_settings_1d(intfs: list[float]) -> dict:
         "max_paths": 5,
         "dim": 1,
         "mass": 1,
-        "v_ord": True,
     }
+    if simtype == "retis":
+        settings["max_cycles"] = 100000
+        settings["prime_both_starts"] = False
+    elif simtype == "istar":
+        settings["v_ord"] = True
+    return settings
 
 
-def build_istar_settings(intfs: list[float]) -> dict:
-    return {
+def build_settings_2d(intfs: list[float], simtype: str) -> dict:
+    settings = {
         "interfaces": intfs,
-        "simtype": "i*",
+        "simtype": "i*" if simtype == "istar" else simtype,
         "method": "load",
         "max_len": 200000,
         "dt": 0.002,
@@ -66,6 +71,14 @@ def build_istar_settings(intfs: list[float]) -> dict:
         "zero_left": 0.1,
         "v_ord": False,
     }
+    if simtype == "retis":
+        settings["prime_both_starts"] = False
+    elif simtype == "repptis":
+        settings["dt"] = 0.01
+        settings["temperature"] = 0.07
+        settings["friction"] = 5.0
+        settings["permeability"] = True
+    return settings
 
 
 def prepare_run_directory(project_root: Path, work_dir: Path) -> Path:
@@ -164,6 +177,12 @@ def parse_args() -> argparse.Namespace:
         help="Simulation mode: 1d uses the 1D setup, 2d uses the 2D setup.",
     )
     parser.add_argument(
+        "--simtype",
+        choices=["istar", "retis", "repptis"],
+        default="istar",
+        help="Simulation type: istar (i*), retis, or repptis.",
+    )
+    parser.add_argument(
         "--interfaces",
         type=float,
         nargs="+",
@@ -174,6 +193,31 @@ def parse_args() -> argparse.Namespace:
         "--show-plots",
         action="store_true",
         help="Show plots interactively after saving them.",
+    )
+    parser.add_argument(
+        "--dt",
+        type=float,
+        help="Time step (dt) for the simulation.",
+    )
+    parser.add_argument(
+        "--friction",
+        type=float,
+        help="Friction coefficient.",
+    )
+    parser.add_argument(
+        "--high-friction",
+        action="store_true",
+        help="Enable high friction mode (default is False).",
+    )
+    parser.add_argument(
+        "--max-cycles",
+        type=int,
+        help="Maximum number of cycles.",
+    )
+    parser.add_argument(
+        "--mass",
+        type=float,
+        help="Mass scale.",
     )
     return parser.parse_args()
 
@@ -190,9 +234,20 @@ def main() -> None:
     intfs = args.interfaces
 
     if args.mode == "1d":
-        settings = build_istar_settings_1d(intfs)
+        settings = build_settings_1d(intfs, args.simtype)
     else:
-        settings = build_istar_settings(intfs)
+        settings = build_settings_2d(intfs, args.simtype)
+
+    if args.dt is not None:
+        settings["dt"] = args.dt
+    if args.friction is not None:
+        settings["friction"] = args.friction
+    if args.high_friction:
+        settings["high_friction"] = True
+    if args.max_cycles is not None:
+        settings["max_cycles"] = args.max_cycles
+    if args.mass is not None:
+        settings["mass"] = args.mass
 
     logger = configure_logging(work_dir / "logging.log")
     logger.info("\ninterfaces = {}\n".format(intfs) + "timestep = {}\n".format(settings["dt"]))
