@@ -11,7 +11,7 @@ logger.addHandler(logging.NullHandler())
 
 class FlatWall1D():
     # TODO description
-    r"""FlatWall(PotentialFunction).
+    r"""FlatWall().
 
     # TODO   rewrite all this documentation !!!
 

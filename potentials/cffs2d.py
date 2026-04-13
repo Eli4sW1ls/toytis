@@ -5,13 +5,12 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from pyretis.forcefield.potential import PotentialFunction
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
-class PotentialcFFS(PotentialFunction):
-    r"""Hyst2D(PotentialFunction).
+class PotentialcFFS():
+    r"""Hyst2D().
 
     This class defines a 2D dimensional potential with two
     reactions channels.

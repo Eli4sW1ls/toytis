@@ -2,11 +2,10 @@ import logging
 import math 
 import numpy as np
 import matplotlib.pyplot as plt  
-from pyretis.forcefield.potential import PotentialFunction
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 logger.addHandler(logging.NullHandler())
 
-class CosWellWalls(PotentialFunction):
+class CosWellWalls():
     """Cos-dip with modulation
         EW - March 2024"""
 

@@ -1,13 +1,12 @@
 import logging
 import numpy as np
-from pyretis.forcefield.potential import PotentialFunction
 from scipy.interpolate import interp2d
 import matplotlib.pyplot as plt
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 np.set_printoptions(threshold=np.inf)
 
-class Ibuprofen(PotentialFunction):
+class Ibuprofen():
     """
     The ibuprofen-DOPC potential.
     """

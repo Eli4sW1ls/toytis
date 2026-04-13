@@ -1,13 +1,12 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from pyretis.forcefield.potential import PotentialFunction
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-class CosBumpSeriesWalls(PotentialFunction):
+class CosBumpSeriesWalls():
     """Series of cosine bump barriers with walls
        Reformatted to match cos_well.py style"""
 

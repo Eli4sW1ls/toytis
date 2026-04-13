@@ -2,11 +2,10 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from pyretis.forcefield.potential import PotentialFunction
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 np.set_printoptions(threshold=np.inf)
-class Maze2D_color(PotentialFunction):
+class Maze2D_color():
     r"""Maze2D(PotentialFunction).
     
     This class definies a two-dimensional maze potential, built from a 
