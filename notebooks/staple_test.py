@@ -12,9 +12,15 @@ import logging
 import os
 import shutil
 from pathlib import Path
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+project_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(project_root))
+
+from simulation import Simulation
 
 
 DEFAULT_WORK_DIR = Path("simulations") / "sim_script"
@@ -228,7 +234,6 @@ def main() -> None:
     work_dir = prepare_run_directory(project_root, project_root / args.work_dir)
     os.chdir(work_dir)
     print(os.getcwd())
-    from simulation import Simulation
 
     intfs = args.interfaces
 
@@ -250,7 +255,7 @@ def main() -> None:
 
     logger = configure_logging(work_dir / "logging.log")
     logger.info("\ninterfaces = {}\n".format(intfs) + "timestep = {}\n".format(settings["dt"]))
-
+    
     sim = Simulation(settings)
     logger.info("Full settings:\n{}".format(sim.settings))
 
