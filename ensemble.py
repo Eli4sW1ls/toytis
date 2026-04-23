@@ -836,7 +836,7 @@ class Ensemble:
             # For state B ensembles, we start at the left interface
             start = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             mid = self.intfs["L"]*(1 + np.sign(self.intfs["L"])*0.1)
-            sto
+            stop = self.intfs["L"]*(1 - np.sign(self.intfs["L"])*0.001)
             N += int(N*np.random.rand()*(self.id-1))
             start = self.intfs["R"]+0.000001
             mid = self.intfs["R"]*(1 - np.sign(self.intfs["R"])*0.15)
