@@ -21,6 +21,7 @@ from potentials.pot_ibuprofen import Ibuprofen
 from potentials.cffs2d import PotentialcFFS
 from potentials.sjoelbak import RectangularGridWithBarrierPotential
 from potentials.sjoelbak_slope import RectangularGridWithBarrierSlope
+from potentials.sjoelbak_angle import RectangularGridWithAngledBarrierPotential
 
 # Configure module logging
 logger = logging.getLogger(__name__)
@@ -340,8 +341,12 @@ class ndLangevinEngine:
         # self.potential = Ibuprofen()
         # self.potential = PotentialcFFS(4, np.pi/6)
         # self.potential = RectangularGridWithBarrierPotential(3*0.1, 9*0.1, 2000, (1.5*0.1, 4.5*0.1), -3.5*3/10, 0.2, 2*.1)
-        self.potential = RectangularGridWithBarrierPotential()
+        # self.potential = RectangularGridWithBarrierPotential()
         # self.potential = RectangularGridWithBarrierSlope()
+        
+        # angle=45 reproduces RectangularGridWithBarrierPotential() exactly
+        self.potential = RectangularGridWithAngledBarrierPotential(angle=0.) # vary from 0 to 65 deg
+        
         #self.potential = RectangularGridWithRuggedPotential()
         
         # Initialize system state and physical parameters

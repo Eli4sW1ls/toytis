@@ -3,3 +3,4 @@ __pycache__/
 simulations/sim*
 longmd_*/
 simulations/*.txt
+notebooks/*.png
