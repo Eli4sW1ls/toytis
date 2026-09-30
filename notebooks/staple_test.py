@@ -73,7 +73,7 @@ def build_settings_2d(intfs: list[float], simtype: str) -> dict:
         "mass": 1,
         "permeability": False,
         "zero_left": 0.1,
-        "v_ord": False,
+        "v_ord": True,
     }
     if simtype == "retis":
         settings["prime_both_starts"] = False
