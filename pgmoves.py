@@ -536,16 +536,21 @@ def kick_star(ens):
             else:
                 sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001, ens.engine.draw_velocities())
         elif ens.settings["dim"] == 2:
-            orth_min = 0.
-            orth_max = 0.3
+            orth_min = -1.5
+            orth_max = 1.5
+            # orth_min = 0.
+            # orth_max = 0.3
             # orth_min = -2
             # orth_max = 2
             if ens.id == 0:
-                sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), ens.engine.draw_velocities())
+                # sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), ens.engine.draw_velocities())
+                sh = (np.asarray([ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, (orth_max-orth_min)*np.random.rand()+orth_min]), ens.engine.draw_velocities())
             elif ens.id == 1:
-                sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001]), ens.engine.draw_velocities())
+                # sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001]), ens.engine.draw_velocities())
+                sh = (np.asarray([ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, (orth_max-orth_min)*np.random.rand()+orth_min]), ens.engine.draw_velocities())
             else:
-                sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001]), ens.engine.draw_velocities())
+                # sh = (np.asarray([(orth_max-orth_min)*np.random.rand()+orth_min, ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001]), ens.engine.draw_velocities())
+                sh = (np.asarray([ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001, (orth_max-orth_min)*np.random.rand()+orth_min]), ens.engine.draw_velocities())
         shootpoint_op = ens.orderparameter.calculate(sh)
         logger.debug("Init from ph {} with op {}".format(
                 sh, shootpoint_op))

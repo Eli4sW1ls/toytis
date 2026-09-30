@@ -22,6 +22,7 @@ from potentials.cffs2d import PotentialcFFS
 from potentials.sjoelbak import RectangularGridWithBarrierPotential
 from potentials.sjoelbak_slope import RectangularGridWithBarrierSlope
 from potentials.sjoelbak_angle import RectangularGridWithAngledBarrierPotential
+from potentials.potential_rectangular_channels import PotentialRectangularChannels
 
 # Configure module logging
 logger = logging.getLogger(__name__)
@@ -107,10 +108,10 @@ class LangevinEngine:
         # Select potential function (currently using FlatWall1D by default)
         # Uncomment other options or add mechanism to select potential via settings
         # self.potential = Potential()
-        self.potential = CosBumpSeriesWalls()
+        # self.potential = CosBumpSeriesWalls()
         # self.potential = FlatWall1D()
         # self.potential = CosDipMetastableWalls()
-        # self.potential = CosWellWalls()
+        self.potential = CosWellWalls()
         
         # Initialize phase point and physical constants
         self.phasepoint = None
@@ -345,9 +346,11 @@ class ndLangevinEngine:
         # self.potential = RectangularGridWithBarrierSlope()
         
         # angle=45 reproduces RectangularGridWithBarrierPotential() exactly
-        self.potential = RectangularGridWithAngledBarrierPotential(angle=0.) # vary from 0 to 65 deg
+        # self.potential = RectangularGridWithAngledBarrierPotential(angle=0.) # vary from 0 to 65 deg
         
         #self.potential = RectangularGridWithRuggedPotential()
+        
+        self.potential = PotentialRectangularChannels()
         
         # Initialize system state and physical parameters
         self.phasepoint = None

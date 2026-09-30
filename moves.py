@@ -421,23 +421,31 @@ def kick_retis(ens):
                       ens.engine.draw_velocities())
         elif ens.settings["dim"] == 2:
             # 2D case: position depends on ensemble ID, adds orthogonal component
-            orth_min = 0.
-            orth_max = 0.3
+            # orth_min = 0.
+            # orth_max = 0.3
+            orth_min = -1.5
+            orth_max = 1.5
+
             orth_coord = (orth_max-orth_min)*np.random.rand()+orth_min
             
             if ens.id == 0:  # [0^-] ensemble
-                sh = (np.asarray([orth_coord, 
-                                 ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), 
+                # sh = (np.asarray([orth_coord, 
+                    #              ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001]), 
+                    #   ens.engine.draw_velocities())
+                sh = (np.asarray([ens.intfs["R"]*(1 - np.sign(ens.intfs["R"])*0.02)-0.0001, orth_coord]), 
                       ens.engine.draw_velocities())
             elif ens.id == 1:  # [0^+] ensemble
-                sh = (np.asarray([orth_coord,
-                                 ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001]), 
+                # sh = (np.asarray([orth_coord,
+                #                  ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001]), 
+                #       ens.engine.draw_velocities())
+                sh = (np.asarray([ens.intfs["L"]*(1 + np.sign(ens.intfs["L"])*0.02)+0.0001, orth_coord]), 
                       ens.engine.draw_velocities())
             else:  # Other ensembles
-                sh = (np.asarray([orth_coord,
-                                 ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001]), 
+                # sh = (np.asarray([orth_coord,
+                #                  ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001]), 
+                #       ens.engine.draw_velocities())
+                sh = (np.asarray([ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001, orth_coord]), 
                       ens.engine.draw_velocities())
-        
         # Calculate order parameter for the starting point
         shootpoint_op = ens.orderparameter.calculate(sh)
         logger.debug("Init from ph {} with op {}".format(sh, shootpoint_op))
