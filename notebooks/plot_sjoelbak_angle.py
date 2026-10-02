@@ -47,7 +47,7 @@ def grid_eval(pot, xs, ys):
             continue
         for i, x in enumerate(xs):
             if 0.0 <= x <= pot.Lx:
-                out[j, i] = pot.effective_potential((np.array([x, y]), np.zeros(2)))
+                out[j, i] = pot.effective_potential((np.array([y, x]), np.zeros(2)))
     return out
 
 
@@ -56,7 +56,7 @@ def free_energy(pot, ys, nx=400):
     xs = np.linspace(-0.03, pot.Lx + 0.03, nx)
     out = np.empty(ys.size)
     for i, y in enumerate(ys):
-        u = np.array([pot.effective_potential((np.array([x, y]), np.zeros(2)))
+        u = np.array([pot.effective_potential((np.array([y, x]), np.zeros(2)))
                       for x in xs])
         out[i] = -KT * np.log(np.trapz(np.exp(-u / KT), xs))
     return out

@@ -423,8 +423,11 @@ def kick_retis(ens):
             # 2D case: position depends on ensemble ID, adds orthogonal component
             # orth_min = 0.
             # orth_max = 0.3
-            orth_min = -1.4
-            orth_max = -1.2
+            # orth_min = -1.4  # rectangular channels: lower channel
+            # orth_max = -1.2
+            # angled sjoelbak: anywhere across the channel width (Lx shrinks with the angle)
+            orth_min = 0.
+            orth_max = ens.engine.potential.Lx
 
             orth_coord = (orth_max-orth_min)*np.random.rand()+orth_min
             

@@ -12,6 +12,11 @@ parameter used by :class:`order.OrderX`.  The transverse direction is ``x``
 (width ``Lx``); ``Lx`` is what is drawn as the *height* of the grid by
 ``plot_potential``.
 
+Phasepoint positions are ordered ``(y, x)``: the order parameter comes
+first, as :class:`order.OrderX` reads ``ph[0][0]``.  The public methods
+(``potential_and_force``, ``potential``, ``force``, ``effective_potential``)
+take and return that order; the internal helpers work in ``(x, y)``.
+
 The tilt ``angle`` is measured from the transverse (``x``) axis, i.e. from
 the orientation of a barrier that is perpendicular to the order parameter:
 
@@ -378,7 +383,8 @@ class RectangularGridWithAngledBarrierPotential:
         f : numpy float array
             The force vector acting in ph
         """
-        x, _ = ph
+        # Phasepoint positions are (y, x); the helpers below work in (x, y).
+        x = np.asarray(ph[0])[::-1]
 
         pot, f = self._walls(x)
 
@@ -396,7 +402,7 @@ class RectangularGridWithAngledBarrierPotential:
         pot += pot_g
         f[1] += fy_g
 
-        return pot, f
+        return pot, f[::-1]
 
     def potential(self, ph):
         """
@@ -437,7 +443,7 @@ class RectangularGridWithAngledBarrierPotential:
         `sjoelbak.py`); this adds it back, so that
         ``force == -grad(effective_potential)``.
         """
-        return self.potential(ph) + self.gravity * ph[0][1]
+        return self.potential(ph) + self.gravity * ph[0][0]
 
     def barrier_top_profile(self, N=400):
         """Effective potential along the ridge line, inside the channel.
@@ -450,7 +456,7 @@ class RectangularGridWithAngledBarrierPotential:
         xs = np.linspace(0.0, self.Lx, N)
         ys = self.r * xs + self.b
         s = xs / np.cos(self.angle)
-        u = np.array([self.effective_potential((np.array([xi, yi]),
+        u = np.array([self.effective_potential((np.array([yi, xi]),
                                                 np.zeros(2)))
                       for xi, yi in zip(xs, ys)])
         return s, ys, u
@@ -469,7 +475,7 @@ class RectangularGridWithAngledBarrierPotential:
         """
         xvals, yvals = np.meshgrid(np.linspace(-.3*self.Ly, 1.3*self.Ly, 1000),
                                    np.linspace(-.3*self.Lx, 1.3*self.Lx, 1000))
-        potvals = np.array([[self.potential_and_force((np.array([x, y]),
+        potvals = np.array([[self.potential_and_force((np.array([y, x]),
             np.array([0, 0])))[0] for x in yvals[:, 0]] for y in xvals[0]]).T
         g = ax.contourf(xvals, yvals, potvals)
         ax.contour(xvals, yvals, potvals, levels=[-5, 0, 5, 10, 15, 20], colors="black")
@@ -479,7 +485,7 @@ class RectangularGridWithAngledBarrierPotential:
         """Returns U(x,y) for given x,y grid."""
         xvals, yvals = np.meshgrid(np.linspace(-.1*self.Lx, 1.1*self.Lx, N),
                                    np.linspace(-.1*self.Ly, 1.1*self.Ly, N))
-        potvals = np.array([[self.potential_and_force((np.array([x, y]),
+        potvals = np.array([[self.potential_and_force((np.array([y, x]),
             np.array([0, 0])))[0] for x in xvals[0]] for y in yvals[:, 0]])
         return xvals, yvals, potvals
 
@@ -492,7 +498,7 @@ class RectangularGridWithAngledBarrierPotential:
         x_y = np.zeros([500, 500])
         i = 0
         for y in np.linspace(-.2*self.Lx, 1.2*self.Lx, 500):
-            x_y[i] = np.array([self.potential((np.array([y, xx]), np.array([0, 0])))
+            x_y[i] = np.array([self.potential((np.array([xx, y]), np.array([0, 0])))
                                for xx in np.linspace(-.2*self.Ly, 1.2*self.Ly, 500)])
             i += 1
         c1 = ax1.pcolorfast((-.2*self.Ly, 1.2*self.Ly), (-.2*self.Lx, 1.2*self.Lx), x_y, vmax=2)
@@ -504,7 +510,7 @@ class RectangularGridWithAngledBarrierPotential:
         fig2, ax2 = plt.subplots()
         i = 0
         for y in np.linspace(-.2*self.Lx, 1.2*self.Lx, 500):
-            x_y[i] = np.array([np.average(self.force((np.array([y, xx]), np.array([0, 0]))))
+            x_y[i] = np.array([np.average(self.force((np.array([xx, y]), np.array([0, 0]))))
                                for xx in np.linspace(-.2*self.Ly, 1.2*self.Ly, 500)])
             i += 1
         c2 = ax2.pcolorfast((-.2*self.Ly, 1.2*self.Ly), (-.2*self.Lx, 1.2*self.Lx), x_y)

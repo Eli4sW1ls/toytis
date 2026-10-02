@@ -21,6 +21,9 @@ project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from simulation import Simulation
+from potentials.cos_well import CosWellWalls
+from potentials.potential_rectangular_channels import PotentialRectangularChannels
+from potentials.sjoelbak_angle import RectangularGridWithAngledBarrierPotential
 
 
 DEFAULT_WORK_DIR = Path("simulations") / "sim_script"
@@ -44,6 +47,7 @@ def build_settings_1d(intfs: list[float], simtype: str) -> dict:
         "max_paths": 5,
         "dim": 1,
         "mass": 1,
+        "potential": CosWellWalls(),
     }
     if simtype == "retis":
         settings["max_cycles"] = 100000
@@ -74,6 +78,7 @@ def build_settings_2d(intfs: list[float], simtype: str) -> dict:
         "permeability": False,
         "zero_left": 0.1,
         "v_ord": True,
+        "potential": PotentialRectangularChannels(),
     }
     if simtype == "retis":
         settings["prime_both_starts"] = False

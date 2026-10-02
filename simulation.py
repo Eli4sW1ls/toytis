@@ -288,7 +288,8 @@ class Simulation:
             "mass": self.settings["mass"],
             "dim": self.settings["dim"],
             "high_friction": self.settings["high_friction"],
-            "v_ord": self.v_ord
+            "v_ord": self.v_ord,
+            "potential": self.settings.get("potential")
         }
 
         # Create the zero minus ensemble [0-]

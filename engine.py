@@ -105,13 +105,12 @@ class LangevinEngine:
         self.T = self.settings["temperature"]
         self.gamma = self.settings["friction"]
         
-        # Select potential function (currently using FlatWall1D by default)
-        # Uncomment other options or add mechanism to select potential via settings
+        # Potential is taken from settings["potential"]; CosWellWalls is the fallback
         # self.potential = Potential()
         # self.potential = CosBumpSeriesWalls()
         # self.potential = FlatWall1D()
         # self.potential = CosDipMetastableWalls()
-        self.potential = CosWellWalls()
+        self.potential = settings.get("potential") or CosWellWalls()
         
         # Initialize phase point and physical constants
         self.phasepoint = None
@@ -335,7 +334,8 @@ class ndLangevinEngine:
         self.T = self.settings["temperature"]
         self.gamma = self.settings["friction"]
         
-        # Select potential function - uncomment the desired potential
+        # Potential is taken from settings["potential"]; PotentialRectangularChannels is the fallback
+        # Examples to pass as settings["potential"]:
         # self.potential = Maze2D_color(mazefig="potentials/maze.png")
         # self.potential = Maze2D_color(mazefig="potentials/input/tunnelistarwalls.png")
         # self.potential = PotentialTwoChannels()
@@ -350,7 +350,7 @@ class ndLangevinEngine:
         
         #self.potential = RectangularGridWithRuggedPotential()
         
-        self.potential = PotentialRectangularChannels()
+        self.potential = settings.get("potential") or PotentialRectangularChannels()
         
         # Initialize system state and physical parameters
         self.phasepoint = None

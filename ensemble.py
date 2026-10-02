@@ -878,7 +878,8 @@ class Ensemble:
         if self.settings["dim"] > 1:
             # maze_entry = 0.64
             # maze_entry = 0.353187488
-            maze_entry = -1.3
+            # maze_entry = -1.3  # rectangular channels: lower channel
+            maze_entry = self.engine.potential.Lx / 2  # angled sjoelbak: middle of the channel
             phasepoints1 = [(np.array([i] + [maze_entry]*(self.settings["dim"]-1)), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(np.array([i] + [maze_entry]*(self.settings["dim"]-1)), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
             if self.simtype == "i*":
