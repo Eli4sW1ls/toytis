@@ -423,8 +423,8 @@ def kick_retis(ens):
             # 2D case: position depends on ensemble ID, adds orthogonal component
             # orth_min = 0.
             # orth_max = 0.3
-            orth_min = -1.5
-            orth_max = 1.5
+            orth_min = -1.4
+            orth_max = -1.2
 
             orth_coord = (orth_max-orth_min)*np.random.rand()+orth_min
             

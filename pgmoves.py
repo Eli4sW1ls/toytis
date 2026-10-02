@@ -536,8 +536,8 @@ def kick_star(ens):
             else:
                 sh = (ens.intfs["M"]*(1 - np.sign(ens.intfs["M"])*0.02)-0.0001, ens.engine.draw_velocities())
         elif ens.settings["dim"] == 2:
-            orth_min = -1.5
-            orth_max = 1.5
+            orth_min = -1.4
+            orth_max = -1.2
             # orth_min = 0.
             # orth_max = 0.3
             # orth_min = -2
