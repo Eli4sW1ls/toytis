@@ -97,7 +97,7 @@ def build_settings(angle: float, simtype: str) -> dict:
         "max_len": 1000000,
         "dt": 0.002,
         "temperature": TEMPERATURE,
-        "friction": 2.0,
+        "friction": 5.0,
         "high_friction": False,
         "max_cycles": 100000,
         "p_shoot": 0.9,
