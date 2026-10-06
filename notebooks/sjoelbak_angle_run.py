@@ -35,15 +35,68 @@ from staple_test import prepare_run_directory, configure_logging
 
 INTERFACES = [0.05, 0.13, 0.21, 0.29, 0.37, 0.45, 0.53, 0.61, 0.69, 0.77, 0.85]
 
+TEMPERATURE = 0.05
+
+
+def retis_interfaces(pot, temperature: float, interfaces: list[float],
+                     n_grid: int = 801, n_x: int = 300) -> list[float]:
+    """RETIS interfaces spaced by equal free-energy increments.
+
+    With the uniform INTERFACES the whole barrier can land inside a single
+    RETIS ensemble. Measured on the angle-0 run: [4+] (0.37 -> 0.45) carries
+    6.8 of the 11.7 kT and crosses with probability ~1e-3 (7 crossing paths out
+    of 28306), while the outer five ensembles each carry 0.0 kT and contribute
+    nothing. Spacing instead by equal increments of the running maximum of
+    F(lambda) = -kT ln int dx exp(-U_eff/kT) gives every ensemble a comparable
+    crossing probability -- worst local probability 0.23 rather than 1e-3 at
+    angle 0, and ~0.34 at the larger angles.
+
+    lambda_A and lambda_B are left where they are: they define the states. Only
+    the interior interfaces move, so the crossing probability being estimated is
+    unchanged. i* and REPPTIS keep the uniform set, so their ensembles stay
+    comparable with the earlier runs.
+    """
+    lam_a, lam_b, n_int = interfaces[0], interfaces[-1], len(interfaces)
+    lam = np.linspace(lam_a, lam_b, n_grid)
+    xs = np.linspace(-0.03, pot.Lx + 0.03, n_x)
+
+    free = np.empty(n_grid)
+    for i, lam_i in enumerate(lam):
+        # Phasepoint positions are (y, x); U_eff is the potential the force
+        # actually derives from, so it is the one the Boltzmann weight needs.
+        u = np.array([pot.effective_potential((np.array([lam_i, x]), np.zeros(2)))
+                      for x in xs])
+        u_min = u.min()
+        free[i] = -temperature * np.log(
+            np.trapz(np.exp(-(u - u_min) / temperature), xs)) + u_min
+
+    # Running maximum: the crossing probability from lambda_A out to lambda is
+    # set by the highest free energy reached on the way, not by F(lambda).
+    barrier = np.maximum.accumulate(free / temperature)
+    barrier -= barrier[0]
+
+    step = (lam_b - lam_a) / (n_grid - 1)
+    out: list[float] = []
+    for target in np.linspace(0.0, barrier[-1], n_int - 1):
+        value = lam[min(int(np.searchsorted(barrier, target)), n_grid - 1)]
+        if out and value <= out[-1]:
+            value = out[-1] + step
+        out.append(round(float(value), 6))
+    out.append(float(lam_b))
+    return out
+
 
 def build_settings(angle: float, simtype: str) -> dict:
+    pot = RectangularGridWithAngledBarrierPotential(angle=angle)
+    interfaces = (retis_interfaces(pot, TEMPERATURE, INTERFACES)
+                  if simtype == "retis" else list(INTERFACES))
     settings = {
-        "interfaces": INTERFACES,
+        "interfaces": interfaces,
         "simtype": "i*" if simtype == "istar" else simtype,
         "method": "load",
         "max_len": 1000000,
         "dt": 0.002,
-        "temperature": 0.05,
+        "temperature": TEMPERATURE,
         "friction": 2.0,
         "high_friction": False,
         "max_cycles": 100000,
@@ -57,7 +110,7 @@ def build_settings(angle: float, simtype: str) -> dict:
         "permeability": False,
         "zero_left": 0.1,
         "v_ord": True,
-        "potential": RectangularGridWithAngledBarrierPotential(angle=angle),
+        "potential": pot,
     }
     if simtype == "retis":
         settings["prime_both_starts"] = False
@@ -119,10 +172,14 @@ def main() -> None:
         settings["max_cycles"] = args.max_cycles
     pot = settings["potential"]
 
+    interfaces = settings["interfaces"]
     logger = configure_logging(work_dir / "logging.log")
-    logger.info("\ninterfaces = {}\n".format(INTERFACES) + "timestep = {}\n".format(settings["dt"]))
+    logger.info("\ninterfaces = {}\n".format(interfaces) + "timestep = {}\n".format(settings["dt"]))
+    if args.simtype == "retis":
+        logger.info("RETIS interfaces spaced by equal free-energy increments "
+                    "(uniform set was {})".format(INTERFACES))
     logger.info("Barrier info:\n{}".format(pot.barrier_info()))
-    plot_potential_surface(pot, INTERFACES, work_dir)
+    plot_potential_surface(pot, interfaces, work_dir)
 
     sim = Simulation(settings)
     logger.info("Full settings:\n{}".format(sim.settings))
