@@ -36,6 +36,8 @@ from staple_test import prepare_run_directory, configure_logging
 INTERFACES = [0.05, 0.13, 0.21, 0.29, 0.37, 0.45, 0.53, 0.61, 0.69, 0.77, 0.85]
 
 TEMPERATURE = 0.05
+# np.trapz was removed in NumPy 2.0 in favour of np.trapezoid.
+trapezoid = getattr(np, "trapezoid", None) or np.trapz
 
 
 def retis_interfaces(pot, temperature: float, interfaces: list[float],
@@ -68,7 +70,7 @@ def retis_interfaces(pot, temperature: float, interfaces: list[float],
                       for x in xs])
         u_min = u.min()
         free[i] = -temperature * np.log(
-            np.trapz(np.exp(-(u - u_min) / temperature), xs)) + u_min
+            trapezoid(np.exp(-(u - u_min) / temperature), xs)) + u_min
 
     # Running maximum: the crossing probability from lambda_A out to lambda is
     # set by the highest free energy reached on the way, not by F(lambda).

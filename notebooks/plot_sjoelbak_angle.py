@@ -30,6 +30,8 @@ from potentials.sjoelbak_angle import RectangularGridWithAngledBarrierPotential 
 
 HERE = Path(__file__).resolve().parent
 KT = 0.05          # temperature of the 2D runs in staple_test.py
+# np.trapz was removed in NumPy 2.0 in favour of np.trapezoid.
+trapezoid = getattr(np, "trapezoid", None) or np.trapz
 INK = "#1a1a1a"
 MUTED = "#6b6b6b"
 STROKE = [pe.withStroke(linewidth=2.0, foreground="#00000055")]
@@ -58,14 +60,14 @@ def free_energy(pot, ys, nx=400):
     for i, y in enumerate(ys):
         u = np.array([pot.effective_potential((np.array([y, x]), np.zeros(2)))
                       for x in xs])
-        out[i] = -KT * np.log(np.trapz(np.exp(-u / KT), xs))
+        out[i] = -KT * np.log(trapezoid(np.exp(-u / KT), xs))
     return out
 
 
 def ridge_partition(pot, n=4001):
     """Boltzmann weight integrated along the ridge (the dividing surface)."""
     s, _, u = pot.barrier_top_profile(n)
-    return np.trapz(np.exp(-u / KT), s)
+    return trapezoid(np.exp(-u / KT), s)
 
 
 def basin_width(pot):
