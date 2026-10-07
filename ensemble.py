@@ -879,7 +879,7 @@ class Ensemble:
             # maze_entry = 0.64
             # maze_entry = 0.353187488
             # maze_entry = -1.3  # rectangular channels: lower channel
-            maze_entry = self.engine.potential.Lx / 2  # angled sjoelbak: middle of the channel
+            maze_entry = np.mean(self.engine.potential.kick_range)  # middle of the potential's kick range
             phasepoints1 = [(np.array([i] + [maze_entry]*(self.settings["dim"]-1)), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(np.array([i] + [maze_entry]*(self.settings["dim"]-1)), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
             if self.simtype == "i*":
@@ -954,6 +954,8 @@ class Ensemble:
             path.staridx = (int(p1), int(p1 + pp1 + p2-2))
 
         # Store the path and update ensemble data
+        # Mark the dummy path: shots from it are not length-capped (see shooting_move)
+        path.dummy = True
         self.paths.append(path)
         self.last_path = path
         self.update_data("ACC", 

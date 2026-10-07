@@ -49,7 +49,13 @@ def shooting_move(ens, level=0):
     
     # Calculate maximum path length based on acceptance probability
     # Ensures detailed balance by limiting path length proportionally to old path
-    shoot_maxlen = min(int((pathlen-2)/np.random.rand()) + 2, ens.max_len)
+    # The (pathlen-2)/rand cap keeps detailed balance between real paths. The dummy
+    # initial path is ~40 points, so the cap would reject nearly every real path;
+    # shots from it may use the full max_len (the start-up is equilibration anyway).
+    if getattr(path, "dummy", False):
+        shoot_maxlen = ens.max_len
+    else:
+        shoot_maxlen = min(int((pathlen-2)/np.random.rand()) + 2, ens.max_len)
     
     # Choose random shooting point, excluding endpoints
     sh_id = np.random.randint(1, pathlen-1)
@@ -425,9 +431,8 @@ def kick_retis(ens):
             # orth_max = 0.3
             # orth_min = -1.4  # rectangular channels: lower channel
             # orth_max = -1.2
-            # angled sjoelbak: anywhere across the channel width (Lx shrinks with the angle)
-            orth_min = 0.
-            orth_max = ens.engine.potential.Lx
+            # transverse range of the kick is set by the potential (kick_range)
+            orth_min, orth_max = ens.engine.potential.kick_range
 
             orth_coord = (orth_max-orth_min)*np.random.rand()+orth_min
             

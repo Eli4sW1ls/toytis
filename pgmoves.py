@@ -538,9 +538,8 @@ def kick_star(ens):
         elif ens.settings["dim"] == 2:
             # orth_min = -1.4  # rectangular channels: lower channel
             # orth_max = -1.2
-            # angled sjoelbak: anywhere across the channel width (Lx shrinks with the angle)
-            orth_min = 0.
-            orth_max = ens.engine.potential.Lx
+            # transverse range of the kick is set by the potential (kick_range)
+            orth_min, orth_max = ens.engine.potential.kick_range
             # orth_min = 0.
             # orth_max = 0.3
             # orth_min = -2

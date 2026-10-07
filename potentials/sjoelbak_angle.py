@@ -203,6 +203,11 @@ class RectangularGridWithAngledBarrierPotential:
     # geometry helpers
     # ------------------------------------------------------------------
     @property
+    def kick_range(self):
+        """Transverse (x) range for initial kicks: the full channel width."""
+        return (0.0, self.Lx)
+
+    @property
     def angle_deg(self):
         """The barrier tilt in degrees."""
         return np.degrees(self.angle)
