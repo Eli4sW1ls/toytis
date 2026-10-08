@@ -40,10 +40,15 @@ TEMPERATURE = 0.25
 # defaults, but diffusion is faster, so paths are ~10x shorter in steps.
 V_PEAK = 0.5 / 0.07 * TEMPERATURE
 V_DIP = 3.0 * TEMPERATURE
-# States at -/+1.6, clear of the obstacle wall. Spacing 0.2 inside the
+# States at -/+1.6, clear of the obstacle wall. Spacing ~0.2 inside the
 # channels, with interfaces on the kinks at -/+0.6 (x_kink = 0.4), so that no
-# interval contains a barrier top or dip bottom.
-INTERFACES = [-1.6] + np.round(np.arange(-1.0, 1.01, 0.2), 2).tolist() + [1.6]
+# interval contains a barrier top or dip bottom. No interface at x = 0: there
+# the two channels are equally populated, and a local ensemble at 0 would keep
+# whichever channel it starts in. At -/+0.1 one channel dominates (92%).
+# No interface at -/+1.0 either: both channels are populated at the mouths, and
+# an ensemble ending at -/+1.6 cannot switch channel (the obstacle wall reaches
+# x = -/+1.5). From -/+0.8 inwards every ensemble is >= 92% one channel.
+INTERFACES = [-1.6, -0.8, -0.6, -0.4, -0.25, -0.1, 0.1, 0.25, 0.4, 0.6, 0.8, 1.6]
 
 
 def build_settings(simtype: str) -> dict:

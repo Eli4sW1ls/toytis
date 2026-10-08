@@ -37,7 +37,7 @@ Tested RETIS benchmark settings (same landscape in kT units, ~10x shorter
 paths than T = 0.07):
     PotentialStaggeredChannels(V_peak=0.5*0.25/0.07, V_dip=3*0.25)
     temperature 0.25, friction 1, dt 0.02
-    interfaces [-1.6, -1.0, -0.8, ..., 0.8, 1.0, 1.6]
+    interfaces [-1.6, -0.8, -0.6, -0.4, -0.25, -0.1, 0.1, 0.25, 0.4, 0.6, 0.8, 1.6]
 (see notebooks/staggered_channels_run.py). Friction 1 gives a ballistic
 length of ~2.5 interface spacings: at friction 5 the low channel's diffusive
 counter-slope turns swamp the other channel's turn states at its barrier top,
@@ -55,9 +55,22 @@ from potentials.potential_rectangular_channels import PotentialRectangularChanne
 class PotentialStaggeredChannels(PotentialRectangularChannels):
     """Rectangular two-channel potential with staggered barriers and dips."""
 
-    # Transverse (y) range for initial kicks and the RETIS dummy path: the
-    # middle of the lower channel, clear of the walls.
-    kick_range = (-1.4, -1.2)
+    def kick_range(self, lam):
+        """Transverse (y) range for an initial kick at interface ``lam``.
+
+        Local path ensembles (REPPTIS, i*) cannot change channel: a path that
+        only spans a few interfaces never reaches the strip far enough to
+        cross from one channel mouth to the other. Each ensemble is therefore
+        started in the channel that dominates it in equilibrium, which is the
+        lower one before x = 0 and the upper one after it; swaps then pass
+        channel identity between neighbouring ensembles. RETIS paths start in
+        A, where the lower channel dominates up to its barrier, so they start
+        there too (lam < 0). Avoid an interface at lam = 0, where both
+        channels are equally populated.
+        """
+        if lam > 0:
+            return (1.2, 1.4)
+        return (-1.4, -1.2)
 
     def __init__(self, V_peak=0.5, V_dip=0.15, x_kink=0.4,
                  desc="Staggered two-channel potential", **kwargs):

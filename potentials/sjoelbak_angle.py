@@ -202,9 +202,8 @@ class RectangularGridWithAngledBarrierPotential:
     # ------------------------------------------------------------------
     # geometry helpers
     # ------------------------------------------------------------------
-    @property
-    def kick_range(self):
-        """Transverse (x) range for initial kicks: the full channel width."""
+    def kick_range(self, lam=None):
+        """Transverse (x) range for initial kicks: the full channel width, at any lambda."""
         return (0.0, self.Lx)
 
     @property

@@ -538,8 +538,9 @@ def kick_star(ens):
         elif ens.settings["dim"] == 2:
             # orth_min = -1.4  # rectangular channels: lower channel
             # orth_max = -1.2
-            # transverse range of the kick is set by the potential (kick_range)
-            orth_min, orth_max = ens.engine.potential.kick_range
+            # transverse range of the kick is set by the potential, at the kick's interface
+            lam = ens.intfs["R"] if ens.id == 0 else ens.intfs["L"] if ens.id == 1 else ens.intfs["M"]
+            orth_min, orth_max = ens.engine.potential.kick_range(lam)
             # orth_min = 0.
             # orth_max = 0.3
             # orth_min = -2
