@@ -36,10 +36,15 @@ from staple_test import prepare_run_directory, configure_logging
 
 
 TEMPERATURE = 0.25
-# Barrier 7.1 kT, dips 3 kT. Same landscape in kT units as the T = 0.07
-# defaults, but diffusion is faster, so paths are ~10x shorter in steps.
+# Barrier 7.1 kT, dips 5 kT, friction 0.25: least channel mixing in the
+# single-turn staple MSM while REPPTIS still fails clearly. In the 1D bench
+# (true P_AB counted directly): staple 1.33x, REPPTIS 6.7x, worst mixed turn
+# state 7-9%. Deeper dips mix less but REPPTIS fails less too (dip 6: staple
+# 1.19x, REPPTIS 4.4x); a lower friction lets energy carry over between turns
+# (gamma 0.2: the 2-turn staple chain drops to 0.90x).
 V_PEAK = 0.5 / 0.07 * TEMPERATURE
-V_DIP = 3.0 * TEMPERATURE
+V_DIP = 5.0 * TEMPERATURE
+FRICTION = 0.25
 # States at -/+1.6, clear of the obstacle wall. Spacing ~0.2 inside the
 # channels, with interfaces on the kinks at -/+0.6 (x_kink = 0.4), so that no
 # interval contains a barrier top or dip bottom. No interface at x = 0: there
@@ -59,10 +64,9 @@ def build_settings(simtype: str) -> dict:
         "max_len": 200000,
         "dt": 0.02,
         "temperature": TEMPERATURE,
-        # Ballistic length sqrt(kT/m)/gamma = 0.5, about 2.5 interface spacings:
-        # turns then identify the channel (staple paths stay in one channel),
-        # while velocity still decorrelates within a turn.
-        "friction": 1.0,
+        # Ballistic length sqrt(kT/m)/gamma = 2: a reactive path crosses most of
+        # a channel without turning, so few turns occur where both channels turn.
+        "friction": FRICTION,
         "high_friction": False,
         "max_cycles": 100000,
         "p_shoot": 0.9,
@@ -101,8 +105,8 @@ def plot_potential_surface(pot, intfs: list[float], output_dir: Path) -> None:
     ax.set_xlabel("x (order parameter)")
     ax.set_ylabel("y")
     ax.set_aspect("equal")
-    ax.set_title("Staggered channels: V_peak = {:.2f}, V_dip = {:.2f}, T = {:g}".format(
-        pot.params["V_peak"], pot.params["V_dip"], TEMPERATURE))
+    ax.set_title("Staggered channels: V_peak = {:.2f}, V_dip = {:.2f}, T = {:g}, friction = {:g}".format(
+        pot.params["V_peak"], pot.params["V_dip"], TEMPERATURE, FRICTION))
     fig.colorbar(cs, ax=ax, label="potential (clipped)")
     fig.tight_layout()
     fig.savefig(output_dir / "potential_surface.png", dpi=200)

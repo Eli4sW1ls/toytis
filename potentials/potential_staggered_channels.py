@@ -33,15 +33,17 @@ Defaults (T = 0.07): V_peak = 7.1 kT, V_dip = 2.1 kT, projected barrier
 1.8 kT, so REPPTIS can overestimate the rate by up to ~200x when the
 interfaces inside the channels are dense (spacing ~0.2).
 
-Tested RETIS benchmark settings (same landscape in kT units, ~10x shorter
-paths than T = 0.07):
-    PotentialStaggeredChannels(V_peak=0.5*0.25/0.07, V_dip=3*0.25)
-    temperature 0.25, friction 1, dt 0.02
+Benchmark settings (notebooks/staggered_channels_run.py):
+    PotentialStaggeredChannels(V_peak=0.5*0.25/0.07, V_dip=5*0.25)
+    temperature 0.25, friction 0.25, dt 0.02
     interfaces [-1.6, -0.8, -0.6, -0.4, -0.25, -0.1, 0.1, 0.25, 0.4, 0.6, 0.8, 1.6]
-(see notebooks/staggered_channels_run.py). Friction 1 gives a ballistic
-length of ~2.5 interface spacings: at friction 5 the low channel's diffusive
-counter-slope turns swamp the other channel's turn states at its barrier top,
-so staple paths would tunnel as well.
+These give the least channel mixing in the single-turn staple MSM (tistools
+iSTAR) while REPPTIS still fails: 1D bench staple 1.33x, REPPTIS 6.7x. The
+remaining staple error comes from turns next to the kinks at -/+0.6, where one
+channel's barrier top meets the other's dip; there the populated channel's
+rare counter-slope turns mix into the other channel's turn states. Lower
+friction suppresses those turns, but below ~0.2 energy carries over from one
+turn to the next. Linear (or rounded-linear) profiles mix more than the cosines.
 State A/B at x = -/+1.6, clear of the obstacle wall: an interface at
 x = -/+1.0 can only be crossed at the narrow channel mouths, which makes
 [0-] paths very long.
