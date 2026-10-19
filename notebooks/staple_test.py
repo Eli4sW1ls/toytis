@@ -106,6 +106,16 @@ def prepare_run_directory(project_root: Path, work_dir: Path) -> Path:
     return work_dir
 
 
+def open_run_directory(project_root: Path, work_dir: Path, restart: bool,
+                       restart_file: str = "restart.pkl") -> Path:
+    """Fresh run: wipe and prepare work_dir. Restart: reuse it as is (it must hold a checkpoint)."""
+    if not restart:
+        return prepare_run_directory(project_root, work_dir)
+    if not (work_dir / restart_file).exists():
+        raise FileNotFoundError(f"--restart given but {work_dir / restart_file} does not exist")
+    return work_dir
+
+
 def configure_logging(log_path: Path) -> logging.Logger:
     logger = logging.getLogger()
     logger.handlers.clear()
@@ -228,6 +238,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         help="Mass scale.",
     )
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="Continue the run in --work-dir from its restart.pkl checkpoint instead of "
+             "starting over (a larger --max-cycles extends a finished run).",
+    )
     return parser.parse_args()
 
 
@@ -236,7 +252,7 @@ def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
     os.chdir(project_root)
 
-    work_dir = prepare_run_directory(project_root, project_root / args.work_dir)
+    work_dir = open_run_directory(project_root, project_root / args.work_dir, args.restart)
     os.chdir(work_dir)
     print(os.getcwd())
 
@@ -257,6 +273,8 @@ def main() -> None:
         settings["max_cycles"] = args.max_cycles
     if args.mass is not None:
         settings["mass"] = args.mass
+    if args.restart:
+        settings["method"] = "restart"
 
     logger = configure_logging(work_dir / "logging.log")
     logger.info("\ninterfaces = {}\n".format(intfs) + "timestep = {}\n".format(settings["dt"]))

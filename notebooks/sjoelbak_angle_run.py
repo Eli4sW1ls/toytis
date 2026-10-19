@@ -32,7 +32,7 @@ sys.path.insert(0, str(project_root / "notebooks"))
 
 from simulation import Simulation
 from potentials.sjoelbak_angle import RectangularGridWithAngledBarrierPotential
-from staple_test import prepare_run_directory, configure_logging
+from staple_test import open_run_directory, configure_logging
 
 
 INTERFACES = [0.05, 0.13, 0.21, 0.29, 0.37, 0.45, 0.53, 0.61, 0.69, 0.77, 0.85]
@@ -231,6 +231,12 @@ def parse_args() -> argparse.Namespace:
         help="Working directory relative to the project root (default: simulations/sjoel_<simtype>_angle<angle>).",
     )
     parser.add_argument("--max-cycles", type=int, help="Maximum number of cycles.")
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="Continue the run in --work-dir from its restart.pkl checkpoint instead of "
+             "starting over (a larger --max-cycles extends a finished run).",
+    )
     return parser.parse_args()
 
 
@@ -239,13 +245,15 @@ def main() -> None:
     os.chdir(project_root)
 
     work_dir = args.work_dir or Path("simulations") / "sjoel_{}_angle{:g}".format(args.simtype, args.angle)
-    work_dir = prepare_run_directory(project_root, project_root / work_dir)
+    work_dir = open_run_directory(project_root, project_root / work_dir, args.restart)
     os.chdir(work_dir)
     print(os.getcwd())
 
     settings = build_settings(args.angle, args.simtype)
     if args.max_cycles is not None:
         settings["max_cycles"] = args.max_cycles
+    if args.restart:
+        settings["method"] = "restart"
     pot = settings["potential"]
 
     interfaces = settings["interfaces"]

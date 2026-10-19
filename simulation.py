@@ -1,4 +1,7 @@
 import logging
+import os
+import signal
+import threading
 import numpy as np
 from ensemble import Ensemble
 from moves import shooting_move, swap, swap_zero, repptis_swap
@@ -37,8 +40,12 @@ class Simulation:
     simtype : str
         Type of simulation to perform: "repptis", "retis" or "i*"
     method : str
-        How the simulation is initialized: "restart" for loading previous state
-        or any other value for creating new ensembles
+        How the simulation is initialized: "restart" continues from the
+        checkpoint file (settings["restart_file"], default restart.pkl) in the
+        current directory; any other value creates new ensembles
+    checkpoint_freq: int
+        Write a checkpoint every this many cycles (0 disables periodic
+        checkpoints; one is still written on pause and at the end of run())
     permeability: bool
         Whether to use a lambda_{-1} interface for the [0-] ensemble
     zero_left: float
@@ -85,14 +92,23 @@ class Simulation:
         self.prime_both_starts = settings.get("prime_both_starts", False)
         self.high_friction = settings.get("high_friction", False)
         self.v_ord = settings.get("v_ord", False)
+        self.checkpoint_freq = settings.get("checkpoint_freq", 1000)
+        self.restart_file = settings.get("restart_file", "restart.pkl")
 
         logger.info("Initializing the %s simulation.", self.simtype)
-        
+
         # Initialize the list of ensembles
         self.ensembles = []
-        
+
         # Create ensembles or load from restart based on method
-        if self.method != "restart":
+        if self.method == "restart":
+            self.load_checkpoint(self.restart_file)
+            # A larger max_cycles in the new settings extends a finished run
+            if "max_cycles" in settings:
+                self.max_cycles = settings["max_cycles"]
+            logger.info("Restarted from %s at cycle %d (max_cycles %d)",
+                        self.restart_file, self.cycle, self.max_cycles)
+        else:
             # Create fresh ensembles
             logger.info("Making the ensembles")
             self.create_ensembles()
@@ -108,11 +124,6 @@ class Simulation:
             for ens in self.ensembles:
                 ens.create_initial_path(N=6)  # Start with 6 time steps
             logger.info("Done creating dummy initial paths for the ensembles")
-        else:
-            # Load the ensembles from restart pickles
-            logger.info("Loading restart pickles for the ensembles")
-            self.load_ensembles_from_restart()
-            logger.info("Done loading restart pickles for ensembles")
 
     def do_shooting_moves(self):
         """Perform shooting moves in all the ensembles.
@@ -421,95 +432,165 @@ class Simulation:
             self.ensembles.append(Ensemble(ens_set))
 
 
-    def load_ensembles_from_restart(self):
-        """ Load all ensembles from previously saved restart files.
-        
-        This method loads the pickle files for each ensemble to restart a simulation.
-        """
-        # Use the number of interfaces to determine how many ensembles to load
-        for i in range(len(self.interfaces)):
-            self.ensembles.append(Ensemble.load_restart_pickle(i))
+    OUTPUT_FILES = ("pathensemble.txt", "pathensemble2.txt", "order.txt")
 
-    def save_simulation(self, filename):
-        """ Save the complete simulation state to a pickle file.
-        
+    def save_checkpoint(self, filename=None):
+        """ Save the simulation state, the global numpy RNG state and the
+        current sizes of the ensemble output files to a pickle file.
+
+        Only call this between cycles. The file is written to a temporary
+        name first and then moved, so a crash while writing leaves the
+        previous checkpoint intact.
+
         Parameters
         ----------
-        filename : str
-            Path to the file where the simulation will be saved
+        filename : str, optional
+            Path of the checkpoint file (default: self.restart_file)
         """
-        with open(filename, "wb") as f:
-            pkl.dump(self, f)
+        filename = filename or self.restart_file
+        file_sizes = {}
+        for ens in self.ensembles:
+            for name in self.OUTPUT_FILES:
+                path = os.path.join(str(ens.id).zfill(3), name)
+                if os.path.exists(path):
+                    file_sizes[path] = os.path.getsize(path)
+        state = {
+            "sim": self,
+            "rng_state": np.random.get_state(),
+            "file_sizes": file_sizes,
+        }
+        tmp = filename + ".tmp"
+        with open(tmp, "wb") as f:
+            pkl.dump(state, f)
+        os.replace(tmp, filename)
+        logger.info("Checkpoint written to %s at cycle %d", filename, self.cycle)
+
+    def load_checkpoint(self, filename=None):
+        """ Restore the state written by save_checkpoint into this object.
+
+        Output files that grew after the checkpoint (the run went on and was
+        then killed) are truncated back to their size at the checkpoint, so
+        pathensemble.txt and order.txt match the restored state exactly.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Path of the checkpoint file (default: self.restart_file)
+        """
+        filename = filename or self.restart_file
+        with open(filename, "rb") as f:
+            state = pkl.load(f)
+        self.__dict__.update(state["sim"].__dict__)
+        np.random.set_state(state["rng_state"])
+        for path, size in state["file_sizes"].items():
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"{path} is listed in {filename} but missing")
+            current = os.path.getsize(path)
+            if current > size:
+                with open(path, "r+b") as f:
+                    f.truncate(size)
+                logger.info("Truncated %s from %d to %d bytes (checkpoint at cycle %d)",
+                            path, current, size, self.cycle)
+            elif current < size:
+                logger.warning("%s is shorter (%d bytes) than at the checkpoint (%d bytes)",
+                               path, current, size)
+
+    def _request_pause(self, signum, frame):
+        """SIGINT handler: pause after the current cycle; a second Ctrl+C aborts."""
+        if self._pause_requested:
+            raise KeyboardInterrupt
+        self._pause_requested = True
+        print("\nPause requested, finishing cycle {}... (Ctrl+C again to abort without "
+              "a checkpoint)".format(self.cycle), flush=True)
+
+    def _pause(self):
+        """Write a checkpoint and wait for the user. Returns False to stop the run."""
+        self._pause_requested = False
+        self.save_checkpoint()
+        print("\nPaused at cycle {}, checkpoint written to {}. "
+              "(Hit ENTER to continue, type q to exit.)".format(self.cycle, self.restart_file))
+        handler = signal.signal(signal.SIGINT, signal.default_int_handler)
+        try:
+            response = input()
+        except KeyboardInterrupt:
+            response = ""
+        except EOFError:
+            # No terminal (e.g. kill -INT on a background run): stop cleanly
+            response = "q"
+        finally:
+            signal.signal(signal.SIGINT, handler)
+        if response.strip().lower() in ("q", "quit"):
+            logger.info("Stopped by user at cycle %d", self.cycle)
+            return False
+        print("Resuming...")
+        return True
+
+    def _run_loop(self, step):
+        """Call step() until max_cycles, checkpointing every checkpoint_freq cycles.
+
+        Ctrl+C is deferred to the end of the current cycle, so a pause never
+        leaves the ensembles or their output files half updated.
+        """
+        self._pause_requested = False
+        main_thread = threading.current_thread() is threading.main_thread()
+        if main_thread:
+            old_handler = signal.signal(signal.SIGINT, self._request_pause)
+        try:
+            while self.cycle < self.max_cycles:
+                step()
+                if self.checkpoint_freq and self.cycle % self.checkpoint_freq == 0:
+                    self.save_checkpoint()
+                if self._pause_requested and not self._pause():
+                    return
+            self.save_checkpoint()
+        finally:
+            if main_thread:
+                signal.signal(signal.SIGINT, old_handler)
 
     def run(self):
         """Run the main simulation loop.
         
         This method performs the Monte Carlo sampling by alternating between
         shooting moves and swap moves based on the p_shoot probability.
-        The simulation continues until max_cycles is reached or interrupted.
+        The simulation continues until max_cycles is reached or the user quits
+        from the Ctrl+C pause prompt. A checkpoint is written every
+        checkpoint_freq cycles, on every pause and at the end.
         """
         p_shoot = self.p_shoot  # Store locally for faster access
-        
-        while self.cycle < self.max_cycles:
-            try:
-                # Log the current cycle
-                logger.info("-" * 80)
-                logger.info("Cycle %d", self.cycle)
-                logger.info("-" * 80)
-                
-                # Choose which move to perform based on p_shoot
-                if np.random.rand() < p_shoot:
-                    # Shooting move
-                    self.do_shooting_moves()
-                else:
-                    # Swap move
-                    self.do_swap_moves()
-                # if self.cycle % 12 == 0 or self.cycle == 1:
-                #     ps = []
-                #     # for i in range(self.settings["max_paths"]):
-                #     #     ps += [self.ensembles[1].paths[min(len(self.ensembles[1].paths)-1,i)]]
-                #     for i in range(len(self.intfs)):
-                #         if self.ensembles[i].ens_type != "state_A":
-                #             ps += [self.ensembles[i].last_path]
-                #             # ps += [self.ensembles[i].paths[np.argmax([max([op[0] for op in self.ensembles[i].paths[j].orders]) for j in range(len(self.ensembles[i].paths))])]]
-                #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
-                #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
-                #     plot_paths(ps, self.intfs)
-                #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-                #     print(self.cycle)
-                #     plt.close()
-            except KeyboardInterrupt:
-                # Allow for graceful interruption of the simulation
-                print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
-                try:
-                    response = input()
-                    if response == 'q':
-                        break
-                    print('Resuming...')
-                except KeyboardInterrupt:
-                    print('Resuming...')
-                    continue
+
+        def step():
+            # Log the current cycle
+            logger.info("-" * 80)
+            logger.info("Cycle %d", self.cycle)
+            logger.info("-" * 80)
+            
+            # Choose which move to perform based on p_shoot
+            if np.random.rand() < p_shoot:
+                # Shooting move
+                self.do_shooting_moves()
+            else:
+                # Swap move
+                self.do_swap_moves()
+            # if self.cycle % 12 == 0 or self.cycle == 1:
+            #     ps = []
+            #     # for i in range(self.settings["max_paths"]):
+            #     #     ps += [self.ensembles[1].paths[min(len(self.ensembles[1].paths)-1,i)]]
+            #     for i in range(len(self.intfs)):
+            #         if self.ensembles[i].ens_type != "state_A":
+            #             ps += [self.ensembles[i].last_path]
+            #             # ps += [self.ensembles[i].paths[np.argmax([max([op[0] for op in self.ensembles[i].paths[j].orders]) for j in range(len(self.ensembles[i].paths))])]]
+            #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+            #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+            #     plot_paths(ps, self.intfs)
+            #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+            #     print(self.cycle)
+            #     plt.close()
+
+        self._run_loop(step)
         if self.cycle >= self.max_cycles:
             logger.info("Reached maximum cycles (%d). Stopping simulation.", self.max_cycles)
             logger.info("Total amount of MD steps: %d", sum(ens.engine.mdsteps for ens in self.ensembles))
 
-    @classmethod
-    def load_simulation(cls, filename):
-        """Load a simulation object from a pickle file.
-        
-        Parameters
-        ----------
-        filename : str
-            Path to the pickle file containing a saved simulation
-            
-        Returns
-        -------
-        Simulation
-            The loaded simulation object
-        """
-        with open(filename, "rb") as f:
-            return pkl.load(f)
-        
 
     ####### [i*] SIMULATION FUNCTIONS ########
 
@@ -522,44 +603,33 @@ class Simulation:
         requirements for the i* algorithm.
         """
         p_shoot = self.p_shoot  # Store locally for faster access
-        
-        while self.cycle < self.max_cycles:
-            try:
-                # Log the current cycle
-                logger.info("-" * 80)
-                logger.info("Cycle %d", self.cycle)
-                logger.info("-" * 80)
-                
-                # Choose which move to perform based on p_shoot
-                if np.random.rand() < p_shoot:
-                    # Shooting move for i* simulation
-                    self.do_shooting_moves()
-                    # if self.cycle % 1 == 0 or self.cycle == 1:
-                    #     ps = []
-                    #     for i in range(len(self.intfs)):
-                    #         if self.ensembles[i].ens_type != "state_A":
-                    #             ps += [self.ensembles[i].last_path]
-                    #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
-                    #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
-                    #     plot_paths(ps, self.ensembles[i].intfs["all"])
-                    #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
-                    #     print(self.cycle)
-                    #     plt.close('all')
-                else:
-                    # Swap move for i* simulation
-                    self.do_swap_moves()
-                    
-            except KeyboardInterrupt:
-                # Allow for graceful interruption of the simulation
-                print('\nPausing...  (Hit ENTER to continue, type quit to exit.)')
-                try:
-                    response = input()
-                    if response == 'q':
-                        break
-                    print('Resuming...')
-                except KeyboardInterrupt:
-                    print('Resuming...')
-                    continue
+
+        def step():
+            # Log the current cycle
+            logger.info("-" * 80)
+            logger.info("Cycle %d", self.cycle)
+            logger.info("-" * 80)
+            
+            # Choose which move to perform based on p_shoot
+            if np.random.rand() < p_shoot:
+                # Shooting move for i* simulation
+                self.do_shooting_moves()
+                # if self.cycle % 1 == 0 or self.cycle == 1:
+                #     ps = []
+                #     for i in range(len(self.intfs)):
+                #         if self.ensembles[i].ens_type != "state_A":
+                #             ps += [self.ensembles[i].last_path]
+                #             # if len([p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"])>0:
+                #             #      ps += [p for p in self.ensembles[i].paths[:-2] if p.ptype[2] != "ACC"]
+                #     plot_paths(ps, self.ensembles[i].intfs["all"])
+                #             #plot_paths([path for path in self.ensembles[i].paths if self.ensembles[i].get_ptype(path) in ["LMR","RML"]][-7:], self.ensembles[i].intfs["all"])                    
+                #     print(self.cycle)
+                #     plt.close('all')
+            else:
+                # Swap move for i* simulation
+                self.do_swap_moves()
+
+        self._run_loop(step)
 
     ############################################################
     # Legacy functions for snake moves and multi-level shooting

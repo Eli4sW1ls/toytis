@@ -32,19 +32,18 @@ sys.path.insert(0, str(project_root / "notebooks"))
 
 from simulation import Simulation
 from potentials.potential_staggered_channels import PotentialStaggeredChannels
-from staple_test import prepare_run_directory, configure_logging
+from staple_test import open_run_directory, configure_logging
 
 
 TEMPERATURE = 0.25
-# Barrier 7.1 kT, dips 5 kT, friction 0.25: least channel mixing in the
-# single-turn staple MSM while REPPTIS still fails clearly. In the 1D bench
-# (true P_AB counted directly): staple 1.33x, REPPTIS 6.7x, worst mixed turn
-# state 7-9%. Deeper dips mix less but REPPTIS fails less too (dip 6: staple
-# 1.19x, REPPTIS 4.4x); a lower friction lets energy carry over between turns
-# (gamma 0.2: the 2-turn staple chain drops to 0.90x).
+# Barrier 7.1 kT, dips 3 kT, friction 0.1. 1D bench (true P_AB counted
+# directly), single-turn staple MSM vs REPPTIS: 1.20x vs 10.5x. Low friction
+# suppresses the counter-slope turns that mix the channels; a shallow dip keeps
+# RETIS paths short (time spent in the dip grows ~exp(dip)/friction). For
+# comparison: dip 5 kT, friction 0.25: 1.40x vs 6.7x with ~6x longer dip paths.
 V_PEAK = 0.5 / 0.07 * TEMPERATURE
-V_DIP = 5.0 * TEMPERATURE
-FRICTION = 0.25
+V_DIP = 3.0 * TEMPERATURE
+FRICTION = 0.1
 # States at -/+1.6, clear of the obstacle wall. Spacing ~0.2 inside the
 # channels, with interfaces on the kinks at -/+0.6 (x_kink = 0.4), so that no
 # interval contains a barrier top or dip bottom. No interface at x = 0: there
@@ -125,9 +124,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--work-dir",
         type=Path,
-        help="Working directory relative to the project root (default: simulations/stag_<simtype>_s<seed>).",
+        help="Working directory relative to the project root (default: simulations/stagd<dip>g<friction>_<simtype>_s<seed>). "
+             "An existing directory of that name is deleted.",
     )
     parser.add_argument("--max-cycles", type=int, help="Maximum number of cycles.")
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="Continue the run in --work-dir from its restart.pkl checkpoint instead of "
+             "starting over (a larger --max-cycles extends a finished run).",
+    )
     return parser.parse_args()
 
 
@@ -136,14 +142,18 @@ def main() -> None:
     os.chdir(project_root)
     np.random.seed(args.seed)
 
-    work_dir = args.work_dir or Path("simulations") / "stag_{}_s{}".format(args.simtype, args.seed)
-    work_dir = prepare_run_directory(project_root, project_root / work_dir)
+    # The default name carries the dip depth (kT) and friction, so runs with other settings are not overwritten.
+    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, FRICTION).replace(".", "")
+    work_dir = args.work_dir or Path("simulations") / "{}_{}_s{}".format(tag, args.simtype, args.seed)
+    work_dir = open_run_directory(project_root, project_root / work_dir, args.restart)
     os.chdir(work_dir)
     print(os.getcwd())
 
     settings = build_settings(args.simtype)
     if args.max_cycles is not None:
         settings["max_cycles"] = args.max_cycles
+    if args.restart:
+        settings["method"] = "restart"
     pot = settings["potential"]
 
     logger = configure_logging(work_dir / "logging.log")

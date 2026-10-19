@@ -4,7 +4,6 @@ from path import Path
 from filehandler import make_ens_dirs_and_files
 from engine import LangevinEngine, ndLangevinEngine
 from order import OrderParameter, OrderX
-import pickle as pkl
 from funcs import remove_lines_from_file, validate_staple
 from moves import kick_retis
 from pgmoves import kick_star
@@ -999,29 +998,3 @@ class Ensemble:
         ax.legend()
         ax.set_title(f"{flag} ensemble {self.name}")
         fig.show()
-
-
-    def write_restart_pickle(self):
-        """
-        Writes the ensemble state to a pickle file for later restart.
-        """
-        with open(str(self.id) + "/restart.pkl", "wb") as f:
-            pkl.dump(self, f)
-
-    @classmethod
-    def load_restart_pickle(cls, id):
-        """
-        Loads an ensemble state from a pickle file.
-        
-        Parameters
-        ----------
-        id : int
-            Ensemble identifier
-            
-        Returns
-        -------
-        Ensemble
-            Loaded ensemble object
-        """
-        with open(str(id) + "/restart.pkl", "rb") as f:
-            return pkl.load(f)
