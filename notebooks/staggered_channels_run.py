@@ -129,6 +129,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--max-cycles", type=int, help="Maximum number of cycles.")
     parser.add_argument(
+        "--alternate-init",
+        action="store_true",
+        help="Start every other ensemble's initial path (RETIS dummy path, REPPTIS/i* kick) in the "
+             "other channel (adds 'alt' to the default work-dir name).",
+    )
+    parser.add_argument(
         "--restart",
         action="store_true",
         help="Continue the run in --work-dir from its restart.pkl checkpoint instead of "
@@ -143,7 +149,7 @@ def main() -> None:
     np.random.seed(args.seed)
 
     # The default name carries the dip depth (kT) and friction, so runs with other settings are not overwritten.
-    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, FRICTION).replace(".", "")
+    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, FRICTION).replace(".", "") + ("alt" if args.alternate_init else "")
     work_dir = args.work_dir or Path("simulations") / "{}_{}_s{}".format(tag, args.simtype, args.seed)
     work_dir = open_run_directory(project_root, project_root / work_dir, args.restart)
     os.chdir(work_dir)
@@ -155,11 +161,14 @@ def main() -> None:
     if args.restart:
         settings["method"] = "restart"
     pot = settings["potential"]
+    # Read by the initial-path code (RETIS dummy paths, kick_retis, kick_star): odd ensembles start in the other channel.
+    pot.alternate_channels = args.alternate_init
 
     logger = configure_logging(work_dir / "logging.log")
     logger.info("\ninterfaces = {}\n".format(INTERFACES) + "timestep = {}\n".format(settings["dt"]))
     logger.info("Potential params:\n{}".format(pot.params))
     logger.info("Seed: {}".format(args.seed))
+    logger.info("Alternating initial channels: {}".format(args.alternate_init))
     plot_potential_surface(pot, INTERFACES, work_dir)
 
     sim = Simulation(settings)

@@ -878,7 +878,12 @@ class Ensemble:
             # maze_entry = 0.64
             # maze_entry = 0.353187488
             # maze_entry = -1.3  # rectangular channels: lower channel
-            maze_entry = np.mean(self.engine.potential.kick_range(start))  # middle of the potential's kick range at the path start
+            kr = self.engine.potential.kick_range(start)
+            # Optionally start every other ensemble in the mirrored (other) channel, see
+            # PotentialStaggeredChannels.alternate_channels
+            if getattr(self.engine.potential, "alternate_channels", False) and self.id % 2 == 1:
+                kr = (-kr[1], -kr[0])
+            maze_entry = np.mean(kr)  # middle of the potential's kick range at the path start
             phasepoints1 = [(np.array([i] + [maze_entry]*(self.settings["dim"]-1)), np.zeros(self.settings["dim"])) for i in np.linspace(start, mid, N)]
             phasepoints2 = [(np.array([i] + [maze_entry]*(self.settings["dim"]-1)), np.zeros(self.settings["dim"])) for i in np.linspace(mid, stop, N)]
             if self.simtype == "i*":

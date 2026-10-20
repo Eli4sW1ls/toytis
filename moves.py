@@ -434,6 +434,9 @@ def kick_retis(ens):
             # transverse range of the kick is set by the potential, at the kick's interface
             lam = ens.intfs["R"] if ens.id == 0 else ens.intfs["L"] if ens.id == 1 else ens.intfs["M"]
             orth_min, orth_max = ens.engine.potential.kick_range(lam)
+            # Optionally start every other ensemble in the mirrored (other) channel
+            if getattr(ens.engine.potential, "alternate_channels", False) and ens.id % 2 == 1:
+                orth_min, orth_max = -orth_max, -orth_min
 
             orth_coord = (orth_max-orth_min)*np.random.rand()+orth_min
             
