@@ -55,7 +55,7 @@ FRICTION = 0.1
 INTERFACES = [-1.6, -0.8, -0.6, -0.4, -0.25, -0.1, 0.1, 0.25, 0.4, 0.6, 0.8, 1.6]
 
 
-def build_settings(simtype: str) -> dict:
+def build_settings(simtype: str, block: str | None = None) -> dict:
     settings = {
         "interfaces": INTERFACES,
         "simtype": "i*" if simtype == "istar" else simtype,
@@ -78,7 +78,8 @@ def build_settings(simtype: str) -> dict:
         "permeability": False,
         "zero_left": 0.2,
         "v_ord": True,
-        "potential": PotentialStaggeredChannels(V_peak=V_PEAK, V_dip=V_DIP),
+        # block: raise one channel's barrier to 30 kT (single-channel reference)
+        "potential": PotentialStaggeredChannels(V_peak=V_PEAK, V_dip=V_DIP, block=block, V_block=30.0 * TEMPERATURE),
     }
     if simtype == "retis":
         settings["prime_both_starts"] = False
@@ -129,6 +130,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--max-cycles", type=int, help="Maximum number of cycles.")
     parser.add_argument(
+        "--block-channel",
+        choices=["upper", "lower"],
+        help="Block one channel (barrier 30 kT) for a single-channel reference run; the full "
+             "two-channel P_AB is twice its value. Adds 'blockU'/'blockL' to the default work-dir name.",
+    )
+    parser.add_argument("--p-shoot", type=float, help="Override the shooting probability (rest are swaps).")
+    parser.add_argument(
         "--alternate-init",
         action="store_true",
         help="Start every other ensemble's initial path (RETIS dummy path, REPPTIS/i* kick) in the "
@@ -149,13 +157,16 @@ def main() -> None:
     np.random.seed(args.seed)
 
     # The default name carries the dip depth (kT) and friction, so runs with other settings are not overwritten.
-    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, FRICTION).replace(".", "") + ("alt" if args.alternate_init else "")
+    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, FRICTION).replace(".", "") + ("alt" if args.alternate_init else "") \
+        + ({"upper": "blockU", "lower": "blockL"}[args.block_channel] if args.block_channel else "")
     work_dir = args.work_dir or Path("simulations") / "{}_{}_s{}".format(tag, args.simtype, args.seed)
     work_dir = open_run_directory(project_root, project_root / work_dir, args.restart)
     os.chdir(work_dir)
     print(os.getcwd())
 
-    settings = build_settings(args.simtype)
+    settings = build_settings(args.simtype, block=args.block_channel)
+    if args.p_shoot is not None:
+        settings["p_shoot"] = args.p_shoot
     if args.max_cycles is not None:
         settings["max_cycles"] = args.max_cycles
     if args.restart:

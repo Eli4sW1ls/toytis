@@ -74,7 +74,7 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
             return (1.2, 1.4)
         return (-1.4, -1.2)
 
-    def __init__(self, V_peak=0.5, V_dip=0.15, x_kink=0.4,
+    def __init__(self, V_peak=0.5, V_dip=0.15, x_kink=0.4, block=None, V_block=None,
                  desc="Staggered two-channel potential", **kwargs):
         """Set up the potential.
 
@@ -87,6 +87,13 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
             barrier. Keep it to a few kT, or it becomes a metastable trap.
         x_kink : float
             Distance from the channel ends to the barrier top / dip bottom.
+        block : {None, "upper", "lower"}
+            Raise that channel's barrier to ``V_block``, so only the other
+            channel connects A and B (single-channel reference runs). By the
+            mirror symmetry and time reversal, the full two-channel P_AB is
+            twice the single-channel one.
+        V_block : float
+            Barrier height of the blocked channel (default 10 * V_peak).
         **kwargs
             Geometry and wall parameters of PotentialRectangularChannels.
         """
@@ -94,6 +101,8 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
         self.params["V_peak"] = V_peak
         self.params["V_dip"] = V_dip
         self.params["x_kink"] = x_kink
+        self.params["block"] = block
+        self.params["V_block"] = 10.0 * V_peak if V_block is None else V_block
 
     def _background_potential_and_force(self, x, y):
         """Return the background potential and force, excluding all walls."""
@@ -106,10 +115,12 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
             return 0.0, np.zeros(2, dtype=float)
 
         nodes = [xl, xl + p["x_kink"], xr - p["x_kink"], xr]
-        if y >= p["y_inner_top"]:
-            values = [0.0, p["V_peak"], -p["V_dip"], 0.0]
+        upper = y >= p["y_inner_top"]
+        peak = p["V_block"] if p["block"] == ("upper" if upper else "lower") else p["V_peak"]
+        if upper:
+            values = [0.0, peak, -p["V_dip"], 0.0]
         else:
-            values = [0.0, -p["V_dip"], p["V_peak"], 0.0]
+            values = [0.0, -p["V_dip"], peak, 0.0]
 
         # Half-cosine between consecutive nodes: zero slope at every node.
         k = min(int(np.searchsorted(nodes, x)), 3)
