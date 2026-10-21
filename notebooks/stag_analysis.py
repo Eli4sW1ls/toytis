@@ -82,7 +82,9 @@ def save_json(run, key, value):
     fn = os.path.join(run, "stag_analysis.json")
     data = json.load(open(fn)) if os.path.exists(fn) else {}
     data[key] = value
-    json.dump(data, open(fn, "w"), indent=1)
+    txt = json.dumps(data, indent=1, default=lambda o: o.item() if hasattr(o, "item") else str(o))
+    with open(fn + ".tmp", "w") as f: f.write(txt)
+    os.replace(fn + ".tmp", fn)
 
 
 def load_json(run):
@@ -366,12 +368,31 @@ def istar_values(run):
 # ---------------------------------------------------------------------------
 # figures
 # ---------------------------------------------------------------------------
+def combine_references(refs, factor):
+    """Inverse-variance mean of the RETIS block-error estimates; the error is inflated by the
+    Birge ratio sqrt(chi2/dof) when the runs disagree more than their block errors allow."""
+    v = np.array([r[2] for r in refs])
+    if any(r[3] is None for r in refs):
+        return factor * v.mean(), None
+    s = v * np.array([r[3] for r in refs]); w = 1 / s ** 2
+    m = (w * v).sum() / w.sum(); sm = w.sum() ** -0.5
+    if len(v) > 1:
+        chi2 = ((v - m) ** 2 * w).sum(); sm *= max(1.0, np.sqrt(chi2 / (len(v) - 1)))
+        print(f"RETIS references: " + ", ".join(f"{a:.3e} +- {e:.1%}" for a, e in zip(v, s / v))
+              + f" -> {m:.3e} +- {sm / m:.1%} (chi2 {chi2:.2f})")
+    return factor * m, sm / m
+
+
+def geo_ratio(r, rel):
+    """Geometric mean of per-seed ratios; error = seed standard error (log) combined with the reference error."""
+    l = np.log(r); se = l.std(ddof=1) / np.sqrt(len(l)) if len(l) > 1 else 0.0
+    return np.exp(l.mean()), float(np.hypot(se, rel or 0.0))
+
+
 def fig_main(istar_runs, retis_runs, factor, out):
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
     refs = [retis_reference(r) for r in retis_runs]
-    vals = np.array([r[2] for r in refs]); P_ref = factor * vals.mean()
-    errs = [r[3] for r in refs if r[3] is not None]
-    rel = (np.sqrt(np.sum(np.square(errs))) / len(errs)) if errs else None
+    P_ref, rel = combine_references(refs, factor)
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11, 4.5), gridspec_kw={"width_ratios": [2.4, 1]})
     for rl, rp, _, _ in refs: ax.semilogy(rl, rp, color="0.55", lw=1.2)
     ax.plot([], [], color="0.55", lw=1.2, label="RETIS, one channel")
@@ -390,12 +411,15 @@ def fig_main(istar_runs, retis_runs, factor, out):
     ax.set_ylabel(r"$P_A(\lambda\,|\,\lambda_A)$"); ax.legend(fontsize=9, loc="lower left")
     for k, (lab_, a, col) in enumerate((("StapleTIS", sts[:, -1], "tab:blue"), ("REPPTIS", reps[:, -1], "tab:orange"))):
         r = a / P_ref
-        ax2.scatter(np.full(len(r), k), r, color=col, alpha=0.6); ax2.errorbar(k, np.exp(np.log(r).mean()), fmt="D", color=col, ms=9)
-        ax2.text(k + 0.12, np.exp(np.log(r).mean()), f"{np.exp(np.log(r).mean()):.2f}x", va="center")
+        g, tot = geo_ratio(r, rel)
+        ax2.scatter(np.full(len(r), k), r, color=col, alpha=0.6)
+        ax2.errorbar(k, g, yerr=[[g - g * np.exp(-tot)], [g * np.exp(tot) - g]], fmt="D", color=col, ms=9, capsize=4)
+        ax2.text(k + 0.15, g, f"{g:.2f}x\n$\\pm${tot:.0%}", va="center")
+        print(f"{lab_}: geometric mean {g:.3f}x +- {tot:.1%} (seed SE + reference); per seed " + " ".join(f"{v:.2f}" for v in r))
     ax2.axhline(1, color="k", lw=1); ax2.set_yscale("log"); ax2.set_xlim(-0.6, 1.8)
     ax2.set_xticks([0, 1]); ax2.set_xticklabels(["StapleTIS", "REPPTIS"]); ax2.set_ylabel(r"$P_{AB}$ / reference")
     ax.set_xlabel(r"$\lambda$"); fig.tight_layout(); fig.savefig(out, dpi=150)
-    print(f"saved {out}; reference P_AB = {P_ref:.3e}" + (f" +- {rel:.0%}" if rel else ""))
+    print(f"saved {out}; reference P_AB = {P_ref:.3e}" + (f" +- {rel:.1%}" if rel else ""))
 
 
 def fig_friction(groups, out):
@@ -442,7 +466,7 @@ def fig_tunnel(run, out):
         kind, rng_, d_ = key.split(" "); lo_, hi_ = [float(s) for s in rng_.strip("[]").split(",")]
         ax.axvspan(lo_, hi_, color="tab:purple" if d_ == "L->U" else "tab:brown", alpha=min(0.6, 0.1 + 2 * v))
         ax.text(0.5 * (lo_ + hi_), 8.2, f"{kind}\n{d_}\n{v:.2f}", ha="center", fontsize=7)
-    ax.set_xlim(-1.25, 1.25); ax.set_ylim(-4, 10); ax.set_xlabel("x"); ax.set_ylabel("V / kT"); ax.legend(loc="lower right", fontsize=8)
+    ax.set_xlim(-1.25, 1.25); ax.set_ylim(-4, 10); ax.set_xlabel("x"); ax.set_ylabel("V / kT"); ax.legend(loc="upper left", fontsize=8)
     ax.set_title(f"Turns where the StapleTIS MSM switches channel ({sw['frac_switch']:.0%} of reactive paths)")
     def tx(tk):
         if tk in ("A", "B"): return intf[0] if tk == "A" else intf[-1]
@@ -456,9 +480,12 @@ def fig_tunnel(run, out):
             col = {"U": "tab:red", "L": "tab:blue", "N": "0.6"}[c]
             if prev is not None and prev != c and "N" not in (prev, c):
                 ax2.plot([xprev, xprev], [yprev, y], "k:", lw=1.5)
-            ax2.annotate("", xy=(x1, y), xytext=(xprev, y), arrowprops=dict(arrowstyle="->", color=col, lw=1.8))
+            ax2.annotate("", xy=(x1, y), xytext=(xprev, y), arrowprops=dict(arrowstyle="->", color=col, lw=1.8),
+                         annotation_clip=False, clip_on=True)
             xprev, yprev, prev = x1, y, c
-    ax2.axhspan(-0.6, 0.6, color="0.4"); ax2.set_ylim(-1.5, 1.5); ax2.set_yticks([-1, 1]); ax2.set_yticklabels(["lower", "upper"])
+    ax2.add_patch(plt.Rectangle((-X_IN, -Y_IN), 2 * X_IN, 2 * Y_IN, color="0.4"))
+    for l in intf: ax2.axvline(l, color="0.88", lw=0.6, zorder=0)
+    ax2.set_xlim(intf[0] - 0.05, intf[-1] + 0.05); ax2.set_ylim(-1.5, 1.5); ax2.set_yticks([-1, 1]); ax2.set_yticklabels(["lower", "upper"])
     ax2.set_xlabel("x (arrows: staple from turn to turn)"); ax2.set_title("Example reactive MSM paths that switch channel (dotted)")
     fig.tight_layout(); fig.savefig(out, dpi=150); print(f"saved {out}")
 
