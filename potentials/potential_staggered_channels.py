@@ -68,8 +68,14 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
         channel identity between neighbouring ensembles. RETIS paths start in
         A, where the lower channel dominates up to its barrier, so they start
         there too (lam < 0). Avoid an interface at lam = 0, where both
-        channels are equally populated.
+        channels are equally populated. With a blocked channel, every kick goes
+        into the open one (a path started on the blocked plateau feels no force
+        and is never pushed out).
         """
+        if self.params["block"] == "lower":
+            return (1.2, 1.4)
+        if self.params["block"] == "upper":
+            return (-1.4, -1.2)
         if lam > 0:
             return (1.2, 1.4)
         return (-1.4, -1.2)
@@ -88,8 +94,9 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
         x_kink : float
             Distance from the channel ends to the barrier top / dip bottom.
         block : {None, "upper", "lower"}
-            Raise that channel's barrier to ``V_block``, so only the other
-            channel connects A and B (single-channel reference runs). By the
+            Replace that channel's profile by a wall rising from both entrances
+            to ``V_block`` (flat in between), so only the other channel connects
+            A and B (single-channel reference runs). By the
             mirror symmetry and time reversal, the full two-channel P_AB is
             twice the single-channel one.
         V_block : float
@@ -116,11 +123,14 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
 
         nodes = [xl, xl + p["x_kink"], xr - p["x_kink"], xr]
         upper = y >= p["y_inner_top"]
-        peak = p["V_block"] if p["block"] == ("upper" if upper else "lower") else p["V_peak"]
-        if upper:
-            values = [0.0, peak, -p["V_dip"], 0.0]
+        if p["block"] == ("upper" if upper else "lower"):
+            # Wall at both entrances, so neither the barrier nor the dip of the
+            # blocked channel can be entered (a reachable dip is a dead-end trap).
+            values = [0.0, p["V_block"], p["V_block"], 0.0]
+        elif upper:
+            values = [0.0, p["V_peak"], -p["V_dip"], 0.0]
         else:
-            values = [0.0, -p["V_dip"], peak, 0.0]
+            values = [0.0, -p["V_dip"], p["V_peak"], 0.0]
 
         # Half-cosine between consecutive nodes: zero slope at every node.
         k = min(int(np.searchsorted(nodes, x)), 3)
