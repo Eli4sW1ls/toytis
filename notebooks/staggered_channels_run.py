@@ -53,11 +53,22 @@ FRICTION = 0.1
 # an ensemble ending at -/+1.6 cannot switch channel (the obstacle wall reaches
 # x = -/+1.5). From -/+0.8 inwards every ensemble is >= 92% one channel.
 INTERFACES = [-1.6, -0.8, -0.6, -0.4, -0.25, -0.1, 0.1, 0.25, 0.4, 0.6, 0.8, 1.6]
+# Single-channel RETIS references (--block-channel) only need the end states
+# -/+1.6 to match; the intermediate interfaces just set the sampling efficiency.
+# With the lower channel blocked the only barrier is the upper one, rising from
+# 0 at x = -1 to V_peak at -0.6 (~1-1.4 kT per step below), and past it every
+# local crossing probability is ~1. "barB" is its mirror image (barrier next to
+# B), the matching set for an upper-blocked run.
+INTERFACE_SETS = {
+    "default": INTERFACES,
+    "barA": [-1.6, -1.0, -0.9, -0.85, -0.8, -0.75, -0.7, -0.6, -0.3, 0.3, 0.8, 1.6],
+    "barB": [-1.6, -0.8, -0.3, 0.3, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 1.0, 1.6],
+}
 
 
-def build_settings(simtype: str, block: str | None = None) -> dict:
+def build_settings(simtype: str, block: str | None = None, interfaces: list | None = None) -> dict:
     settings = {
-        "interfaces": INTERFACES,
+        "interfaces": INTERFACES if interfaces is None else interfaces,
         "simtype": "i*" if simtype == "istar" else simtype,
         "method": "load",
         "max_len": 200000,
@@ -137,6 +148,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--p-shoot", type=float, help="Override the shooting probability (rest are swaps).")
     parser.add_argument(
+        "--interfaces",
+        choices=sorted(INTERFACE_SETS),
+        default="default",
+        help="Interface set (see INTERFACE_SETS); a non-default set is added to the default work-dir name.",
+    )
+    parser.add_argument(
         "--alternate-init",
         action="store_true",
         help="Start every other ensemble's initial path (RETIS dummy path, REPPTIS/i* kick) in the "
@@ -158,13 +175,15 @@ def main() -> None:
 
     # The default name carries the dip depth (kT) and friction, so runs with other settings are not overwritten.
     tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, FRICTION).replace(".", "") + ("alt" if args.alternate_init else "") \
-        + ({"upper": "blockU", "lower": "blockL"}[args.block_channel] if args.block_channel else "")
+        + ({"upper": "blockU", "lower": "blockL"}[args.block_channel] if args.block_channel else "") \
+        + ("" if args.interfaces == "default" else args.interfaces)
     work_dir = args.work_dir or Path("simulations") / "{}_{}_s{}".format(tag, args.simtype, args.seed)
     work_dir = open_run_directory(project_root, project_root / work_dir, args.restart)
     os.chdir(work_dir)
     print(os.getcwd())
 
-    settings = build_settings(args.simtype, block=args.block_channel)
+    interfaces = INTERFACE_SETS[args.interfaces]
+    settings = build_settings(args.simtype, block=args.block_channel, interfaces=interfaces)
     if args.p_shoot is not None:
         settings["p_shoot"] = args.p_shoot
     if args.max_cycles is not None:
@@ -176,11 +195,11 @@ def main() -> None:
     pot.alternate_channels = args.alternate_init
 
     logger = configure_logging(work_dir / "logging.log")
-    logger.info("\ninterfaces = {}\n".format(INTERFACES) + "timestep = {}\n".format(settings["dt"]))
+    logger.info("\ninterfaces = {}\n".format(interfaces) + "timestep = {}\n".format(settings["dt"]))
     logger.info("Potential params:\n{}".format(pot.params))
     logger.info("Seed: {}".format(args.seed))
     logger.info("Alternating initial channels: {}".format(args.alternate_init))
-    plot_potential_surface(pot, INTERFACES, work_dir)
+    plot_potential_surface(pot, interfaces, work_dir)
 
     sim = Simulation(settings)
     logger.info("Full settings:\n{}".format(sim.settings))
