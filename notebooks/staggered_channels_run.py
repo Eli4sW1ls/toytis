@@ -66,7 +66,8 @@ INTERFACE_SETS = {
 }
 
 
-def build_settings(simtype: str, block: str | None = None, interfaces: list | None = None) -> dict:
+def build_settings(simtype: str, block: str | None = None, interfaces: list | None = None,
+                   friction: float = FRICTION) -> dict:
     settings = {
         "interfaces": INTERFACES if interfaces is None else interfaces,
         "simtype": "i*" if simtype == "istar" else simtype,
@@ -76,7 +77,7 @@ def build_settings(simtype: str, block: str | None = None, interfaces: list | No
         "temperature": TEMPERATURE,
         # Ballistic length sqrt(kT/m)/gamma = 2: a reactive path crosses most of
         # a channel without turning, so few turns occur where both channels turn.
-        "friction": FRICTION,
+        "friction": friction,
         "high_friction": False,
         "max_cycles": 100000,
         "p_shoot": 0.9,
@@ -100,7 +101,7 @@ def build_settings(simtype: str, block: str | None = None, interfaces: list | No
     return settings
 
 
-def plot_potential_surface(pot, intfs: list[float], output_dir: Path) -> None:
+def plot_potential_surface(pot, intfs: list[float], output_dir: Path, friction: float = FRICTION) -> None:
     xvals = np.linspace(-2.9, 2.9, 290)
     yvals = np.linspace(-1.9, 1.9, 190)
     potvals = np.zeros((yvals.size, xvals.size))
@@ -117,7 +118,7 @@ def plot_potential_surface(pot, intfs: list[float], output_dir: Path) -> None:
     ax.set_ylabel("y")
     ax.set_aspect("equal")
     ax.set_title("Staggered channels: V_peak = {:.2f}, V_dip = {:.2f}, T = {:g}, friction = {:g}".format(
-        pot.params["V_peak"], pot.params["V_dip"], TEMPERATURE, FRICTION))
+        pot.params["V_peak"], pot.params["V_dip"], TEMPERATURE, friction))
     fig.colorbar(cs, ax=ax, label="potential (clipped)")
     fig.tight_layout()
     fig.savefig(output_dir / "potential_surface.png", dpi=200)
@@ -147,6 +148,8 @@ def parse_args() -> argparse.Namespace:
              "two-channel P_AB is twice its value. Adds 'blockU'/'blockL' to the default work-dir name.",
     )
     parser.add_argument("--p-shoot", type=float, help="Override the shooting probability (rest are swaps).")
+    parser.add_argument("--friction", type=float, default=FRICTION,
+                        help=f"Langevin friction (default {FRICTION}); part of the default work-dir name (g<friction>).")
     parser.add_argument(
         "--interfaces",
         choices=sorted(INTERFACE_SETS),
@@ -174,7 +177,7 @@ def main() -> None:
     np.random.seed(args.seed)
 
     # The default name carries the dip depth (kT) and friction, so runs with other settings are not overwritten.
-    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, FRICTION).replace(".", "") + ("alt" if args.alternate_init else "") \
+    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, args.friction).replace(".", "") + ("alt" if args.alternate_init else "") \
         + ({"upper": "blockU", "lower": "blockL"}[args.block_channel] if args.block_channel else "") \
         + ("" if args.interfaces == "default" else args.interfaces)
     work_dir = args.work_dir or Path("simulations") / "{}_{}_s{}".format(tag, args.simtype, args.seed)
@@ -183,7 +186,7 @@ def main() -> None:
     print(os.getcwd())
 
     interfaces = INTERFACE_SETS[args.interfaces]
-    settings = build_settings(args.simtype, block=args.block_channel, interfaces=interfaces)
+    settings = build_settings(args.simtype, block=args.block_channel, interfaces=interfaces, friction=args.friction)
     if args.p_shoot is not None:
         settings["p_shoot"] = args.p_shoot
     if args.max_cycles is not None:
@@ -199,7 +202,7 @@ def main() -> None:
     logger.info("Potential params:\n{}".format(pot.params))
     logger.info("Seed: {}".format(args.seed))
     logger.info("Alternating initial channels: {}".format(args.alternate_init))
-    plot_potential_surface(pot, interfaces, work_dir)
+    plot_potential_surface(pot, interfaces, work_dir, args.friction)
 
     sim = Simulation(settings)
     logger.info("Full settings:\n{}".format(sim.settings))

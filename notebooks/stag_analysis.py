@@ -368,19 +368,30 @@ def istar_values(run):
 # ---------------------------------------------------------------------------
 # figures
 # ---------------------------------------------------------------------------
-def combine_references(refs, factor):
-    """Inverse-variance mean of the RETIS block-error estimates; the error is inflated by the
-    Birge ratio sqrt(chi2/dof) when the runs disagree more than their block errors allow."""
-    v = np.array([r[2] for r in refs])
-    if any(r[3] is None for r in refs):
-        return factor * v.mean(), None
-    s = v * np.array([r[3] for r in refs]); w = 1 / s ** 2
-    m = (w * v).sum() / w.sum(); sm = w.sum() ** -0.5
+def combine_references(refs, factor, names=None):
+    """Combine the RETIS estimates of P_AB into one reference.
+
+    Each run i gives P_i with the pyretis block-error relative error r_i. P_AB is a
+    product of local crossing probabilities, so the runs are combined in log space:
+    ln P_ref = sum(w_i ln P_i) / sum(w_i), w_i = 1 / r_i^2, with error 1 / sqrt(sum w_i).
+    If the runs scatter more than their block errors allow (chi2 = sum w_i (ln P_i -
+    ln P_ref)^2 > dof), that error is inflated by the Birge ratio sqrt(chi2 / dof).
+    ``factor`` multiplies the value (2 for one-channel runs); it is exact by symmetry
+    and carries no error. Returns (P_ref, relative error, per-run [name, factor*P_i, r_i]).
+    """
+    names = names or [str(k) for k in range(len(refs))]
+    v = np.array([r[2] for r in refs]); errs = [r[3] for r in refs]
+    runs = [[n, factor * a, e] for n, a, e in zip(names, v, errs)]
+    if any(e is None for e in errs):
+        return factor * np.exp(np.log(v).mean()), None, runs
+    l, r = np.log(v), np.array(errs); w = 1 / r ** 2
+    m = (w * l).sum() / w.sum(); sm = w.sum() ** -0.5; birge = 1.0; chi2 = 0.0
     if len(v) > 1:
-        chi2 = ((v - m) ** 2 * w).sum(); sm *= max(1.0, np.sqrt(chi2 / (len(v) - 1)))
-        print(f"RETIS references: " + ", ".join(f"{a:.3e} +- {e:.1%}" for a, e in zip(v, s / v))
-              + f" -> {m:.3e} +- {sm / m:.1%} (chi2 {chi2:.2f})")
-    return factor * m, sm / m
+        chi2 = float((w * (l - m) ** 2).sum()); birge = max(1.0, np.sqrt(chi2 / (len(v) - 1)))
+    print("RETIS references (x{:g}): ".format(factor) + ", ".join(f"{n} {a:.3e} +- {e:.1%}" for n, a, e in runs))
+    print(f"  weighted (log) mean {factor * np.exp(m):.3e}, block-error-only error {sm:.1%}, "
+          f"chi2 {chi2:.2f} / dof {len(v) - 1}, Birge {birge:.2f} -> +- {sm * birge:.1%}")
+    return factor * np.exp(m), sm * birge, runs
 
 
 def geo_ratio(r, rel):
@@ -392,7 +403,7 @@ def geo_ratio(r, rel):
 def fig_main(istar_runs, retis_runs, factor, out):
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
     refs = [retis_reference(r) for r in retis_runs]
-    P_ref, rel = combine_references(refs, factor)
+    P_ref, rel, ref_runs = combine_references(refs, factor, [os.path.basename(os.path.normpath(r)) for r in retis_runs])
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11, 4.5), gridspec_kw={"width_ratios": [2.4, 1]})
     for rl, rp, _, _ in refs: ax.semilogy(rl, rp, color="0.55", lw=1.2)
     ax.plot([], [], color="0.55", lw=1.2, label="RETIS, one channel")
@@ -407,7 +418,7 @@ def fig_main(istar_runs, retis_runs, factor, out):
     ax.semilogy(intf, gm(sts), "o-", color="tab:blue", lw=2.2, label=f"StapleTIS ({len(istar_runs)} seeds)")
     ax.semilogy(intf, gm(reps), "s-", color="tab:orange", lw=2.2, label=f"REPPTIS ({len(istar_runs)} seeds)")
     ax.axhline(P_ref, color="k", lw=2, label=f"RETIS reference ({factor:g} x one channel)")
-    if rel: ax.axhspan(P_ref * (1 - rel), P_ref * (1 + rel), color="k", alpha=0.12)
+    if rel: ax.axhspan(P_ref * np.exp(-rel), P_ref * np.exp(rel), color="k", alpha=0.2, lw=0)
     ax.set_ylabel(r"$P_A(\lambda\,|\,\lambda_A)$"); ax.legend(fontsize=9, loc="lower left")
     for k, (lab_, a, col) in enumerate((("StapleTIS", sts[:, -1], "tab:blue"), ("REPPTIS", reps[:, -1], "tab:orange"))):
         r = a / P_ref
@@ -416,8 +427,18 @@ def fig_main(istar_runs, retis_runs, factor, out):
         ax2.errorbar(k, g, yerr=[[g - g * np.exp(-tot)], [g * np.exp(tot) - g]], fmt="D", color=col, ms=9, capsize=4)
         ax2.text(k + 0.15, g, f"{g:.2f}x\n$\\pm${tot:.0%}", va="center")
         print(f"{lab_}: geometric mean {g:.3f}x +- {tot:.1%} (seed SE + reference); per seed " + " ".join(f"{v:.2f}" for v in r))
-    ax2.axhline(1, color="k", lw=1); ax2.set_yscale("log"); ax2.set_xlim(-0.6, 1.8)
-    ax2.set_xticks([0, 1]); ax2.set_xticklabels(["StapleTIS", "REPPTIS"]); ax2.set_ylabel(r"$P_{AB}$ / reference")
+    # the RETIS runs themselves, each with its own block error, and the combined reference band
+    xr = -1 + np.linspace(-0.25, 0.25, len(ref_runs)) if len(ref_runs) > 1 else np.array([-1.0])
+    for x_, (n, a, e) in zip(xr, ref_runs):
+        q = a / P_ref
+        ax2.errorbar(x_, q, yerr=None if e is None else [[q - q * np.exp(-e)], [q * np.exp(e) - q]],
+                     fmt="o", color="0.3", ms=5, capsize=3)
+    if rel:
+        ax2.axhspan(np.exp(-rel), np.exp(rel), color="k", alpha=0.2, lw=0)
+        ax2.text(-1, np.exp(rel) * 1.15, f"$\\pm${rel:.0%}", ha="center", fontsize=9)
+    ax2.axhline(1, color="k", lw=1); ax2.set_yscale("log"); ax2.set_xlim(-1.6, 1.8)
+    ax2.set_xticks([-1, 0, 1]); ax2.set_xticklabels([f"RETIS\n(x{factor:g})", "StapleTIS", "REPPTIS"])
+    ax2.set_ylabel(r"$P_{AB}$ / reference")
     ax.set_xlabel(r"$\lambda$"); fig.tight_layout(); fig.savefig(out, dpi=150)
     print(f"saved {out}; reference P_AB = {P_ref:.3e}" + (f" +- {rel:.1%}" if rel else ""))
 
