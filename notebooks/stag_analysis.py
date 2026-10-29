@@ -174,6 +174,33 @@ def staple_weights(pes, n):
                                                     ha_factors=None, verbose=False), float) for i, pe in enumerate(pes)}
 
 
+def istar_layout(tt, n):
+    """State layout of the tistools StapleTIS MSM for n interfaces, for either tistools version.
+
+    Returns (NS, A, start, B, state_turn): the number of states, the absorbing "in A" and
+    "reached B" states, the "just left A" start state, and state_turn(s) -> (interface index,
+    "min"|"max") of the last turn of state s (None, None for A/B; (0, "min") for the start).
+    tistools >= 64f0940 (istar_n_states): 0 = in A, 1 = left A, 1+i = turned at a minimum at
+    lambda_i, n-1+i = turned at a maximum at lambda_i, 2n-2 = B. Older versions used 2n states:
+    1 = back in A, 2 = left A, 2+i = minimum at lambda_i, n+i = maximum at lambda_i, 2n-1 = B.
+    """
+    if hasattr(tt, "istar_n_states"):
+        NS = tt.istar_n_states(n)
+        def state_turn(s):
+            if s == 1: return 0, "min"
+            if 2 <= s <= n - 1: return s - 1, "min"
+            if n <= s <= 2 * n - 3: return s - n + 1, "max"
+            return None, None
+        return NS, 0, 1, NS - 1, state_turn
+    NS = 2 * n
+    def state_turn(s):
+        if s == 2: return 0, "min"
+        if 2 < s < 2 + n: return s - 2, "min"
+        if n <= s < 2 * n: return s - n, "max"
+        return None, None
+    return NS, 1, 2, NS - 1, state_turn
+
+
 def staple_profile(pes, intf, weights=None):
     """Same calls as tistools-retis-istar-compare."""
     tt = tistools(); out = np.ones(len(intf))
@@ -182,7 +209,7 @@ def staple_profile(pes, intf, weights=None):
             X = tt.compute_weight_matrices(pes[:lint], intf[:lint], len(intf), tr=False, correct_ha=False, norm=False,
                                            weights=None if weights is None else {i: weights[i] for i in range(lint)})
             P, _ = tt.get_transition_probs_weights(X)
-            M = tt.construct_M_istar(P, max(4, 2 * lint), lint)
+            M = tt.construct_M_istar(P, istar_layout(tt, lint)[0], lint)
             _, _, y1, _ = tt.global_pcross_msm_star(M)
             out[lint - 1] = y1[0][0]
     return out
@@ -269,7 +296,8 @@ def diag_retis(run):
 # ---------------------------------------------------------------------------
 def switch(run, nrun=200000, seed=3):
     tt = tistools(); rng = np.random.default_rng(seed)
-    pes, intf = load_pes(run); n = len(intf); NS = 2 * n
+    pes, intf = load_pes(run); n = len(intf)
+    NS, sA, s0, sB, state_turn = istar_layout(tt, n)
     W = staple_weights(pes, n); lab = read_labels(run, [len(W[i]) for i in range(n)])
     masked = lambda keep: {i: W[i] * np.isin(lab[i], keep) for i in range(n)}
     with quiet():
@@ -280,12 +308,6 @@ def switch(run, nrun=200000, seed=3):
     M = np.nan_to_num(tt.construct_M_istar(P, NS, n))
     T = {c: sum(Xc[c][i] for i in range(n)) for c in Xc}
 
-    def state_turn(s):
-        if s == 2: return 0, "min"
-        if 2 < s < 2 + n: return s - 2, "min"
-        if n <= s < 2 * n: return s - n, "max"
-        return None, None
-
     def comp(j, k):
         v = np.array([T[c][j, k] for c in "ULN"]); s = v.sum()
         return v / s if s > 0 else np.array([0, 0, 1.0])
@@ -295,11 +317,11 @@ def switch(run, nrun=200000, seed=3):
         ta, _ = state_turn(a)
         if ta is None: continue
         for b in np.nonzero(M[a] > 0)[0]:
-            tb = 0 if b == 1 else (n - 1 if b == NS - 1 else state_turn(b)[0])
+            tb = 0 if b == sA else (n - 1 if b == sB else state_turn(b)[0])
             edge[(a, b)] = comp(ta, tb)
-    trans = [s for s in range(NS) if s not in (0, 1, NS - 1)]
-    q = np.zeros(NS); q[NS - 1] = 1.0
-    q[trans] = np.linalg.solve(np.eye(len(trans)) - M[np.ix_(trans, trans)], M[np.ix_(trans, [NS - 1])].ravel())
+    trans = [s for s in range(NS) if s not in (sA, sB) and (s == s0 or state_turn(s)[0] is not None)]
+    q = np.zeros(NS); q[sB] = 1.0
+    q[trans] = np.linalg.solve(np.eye(len(trans)) - M[np.ix_(trans, trans)], M[np.ix_(trans, [sB])].ravel())
 
     def inside(s):
         t, kind = state_turn(s)
@@ -309,8 +331,8 @@ def switch(run, nrun=200000, seed=3):
 
     sw, nsw, nany, examples = {}, [], [], []
     for _ in range(nrun):
-        s, last, k, kany, path = 2, None, 0, 0, []
-        while s not in (1, NS - 1):
+        s, last, k, kany, path = s0, None, 0, 0, []
+        while s not in (sA, sB):
             nxt = np.nonzero(M[s] > 0)[0]; pr = M[s, nxt] * q[nxt]; pr /= pr.sum()
             b = nxt[rng.choice(len(nxt), p=pr)]; c = "ULN"[rng.choice(3, p=edge[(s, b)])]
             if c != "N":
@@ -319,13 +341,13 @@ def switch(run, nrun=200000, seed=3):
                     t, kind = state_turn(s); key = f"{kind} [{(intf[t-1] if kind == 'min' else intf[t]):+.2f},{(intf[t] if kind == 'min' else intf[t+1]):+.2f}] {last}->{c}"
                     sw[key] = sw.get(key, 0) + 1; k += 1
                 last = c
-            path.append([list(state_turn(s)), list(state_turn(b)) if b not in (1, NS - 1) else ("A" if b == 1 else "B"), c]); s = b
+            path.append([list(state_turn(s)), list(state_turn(b)) if b not in (sA, sB) else ("A" if b == sA else "B"), c]); s = b
         nsw.append(k); nany.append(kany)
         if k and len(examples) < 50: examples.append(path)
     nsw = np.array(nsw)
     res = {"frac_switch": float(np.mean(nsw > 0)), "frac_switch_any": float(np.mean(np.array(nany) > 0)), "mean_switch": float(nsw.mean()), "nrun": nrun,
            "switch_at": {k: v / nrun for k, v in sorted(sw.items(), key=lambda kv: -kv[1])},
-           "committor": float(q[2]), "examples": examples}
+           "committor": float(q[s0]), "examples": examples}
     print(f"\n== {run}: {res['frac_switch']:.1%} of reactive StapleTIS-MSM paths switch channel at a turn inside the obstacle "
           f"({res['frac_switch_any']:.1%} switch anywhere, incl. the open region)")
     for k_, v in list(res["switch_at"].items())[:8]: print(f"   {k_}: {v:.3f} per reactive path")

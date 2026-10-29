@@ -459,10 +459,22 @@ class Simulation:
             "rng_state": np.random.get_state(),
             "file_sizes": file_sizes,
         }
+        # Flush to disk before the rename: after a crash or reboot an unsynced file can
+        # survive the rename but come back filled with zeros. The previous checkpoint
+        # is kept as <filename>.prev, which load_checkpoint falls back to.
         tmp = filename + ".tmp"
         with open(tmp, "wb") as f:
             pkl.dump(state, f)
+            f.flush()
+            os.fsync(f.fileno())
+        if os.path.exists(filename):
+            os.replace(filename, filename + ".prev")
         os.replace(tmp, filename)
+        dirfd = os.open(os.path.dirname(os.path.abspath(filename)), os.O_RDONLY)
+        try:
+            os.fsync(dirfd)
+        finally:
+            os.close(dirfd)
         logger.info("Checkpoint written to %s at cycle %d", filename, self.cycle)
 
     def load_checkpoint(self, filename=None):
@@ -478,8 +490,18 @@ class Simulation:
             Path of the checkpoint file (default: self.restart_file)
         """
         filename = filename or self.restart_file
-        with open(filename, "rb") as f:
-            state = pkl.load(f)
+        try:
+            with open(filename, "rb") as f:
+                state = pkl.load(f)
+        except (pkl.UnpicklingError, EOFError, FileNotFoundError) as err:
+            prev = filename + ".prev"
+            if not os.path.exists(prev):
+                raise
+            logger.warning("%s is unreadable (%s); restarting from the previous checkpoint %s",
+                           filename, err, prev)
+            filename = prev
+            with open(filename, "rb") as f:
+                state = pkl.load(f)
         self.__dict__.update(state["sim"].__dict__)
         np.random.set_state(state["rng_state"])
         for path, size in state["file_sizes"].items():
