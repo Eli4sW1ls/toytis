@@ -8,6 +8,8 @@ creates the same diagnostic plots without requiring Jupyter.
 from __future__ import annotations
 
 import argparse
+import ast
+import importlib
 import logging
 import os
 import shutil
@@ -88,6 +90,32 @@ def build_settings_2d(intfs: list[float], simtype: str) -> dict:
         settings["friction"] = 5.0
         settings["permeability"] = True
     return settings
+
+
+def load_potential(spec: str, kwargs: dict):
+    """Instantiate a potential from 'module:Class', e.g. 'sjoelbak:RectangularGridWithBarrierPotential'."""
+    module_name, sep, class_name = spec.partition(":")
+    if not sep or not class_name:
+        raise ValueError("--potential must be module:Class, got {!r}".format(spec))
+    try:
+        module = importlib.import_module("potentials." + module_name)
+    except ModuleNotFoundError:
+        module = importlib.import_module(module_name)
+    return getattr(module, class_name)(**kwargs)
+
+
+def parse_key_values(pairs: list[str], option: str) -> dict:
+    """KEY=VALUE pairs to a dict; values are Python literals, otherwise kept as strings."""
+    out = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        if not sep:
+            raise ValueError("{} entries must be KEY=VALUE, got {!r}".format(option, pair))
+        try:
+            out[key] = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            out[key] = value
+    return out
 
 
 def prepare_run_directory(project_root: Path, work_dir: Path) -> Path:
@@ -239,6 +267,20 @@ def parse_args() -> argparse.Namespace:
         help="Mass scale.",
     )
     parser.add_argument(
+        "--potential",
+        help="Potential as module:Class (module looked up in potentials/ first), replacing the "
+             "mode's default, e.g. sjoelbak:RectangularGridWithBarrierPotential.",
+    )
+    parser.add_argument(
+        "--pot-kwargs", nargs="+", default=[], metavar="KEY=VALUE",
+        help="Constructor arguments of --potential (Python literals).",
+    )
+    parser.add_argument(
+        "--set", nargs="+", default=[], metavar="KEY=VALUE", dest="overrides",
+        help="Override any simulation setting (Python literals), e.g. temperature=0.05 "
+             "p_shoot=0.9 max_len=200000 zero_left=0.1 v_ord=False. Applied last.",
+    )
+    parser.add_argument(
         "--restart",
         action="store_true",
         help="Continue the run in --work-dir from its restart.pkl checkpoint instead of "
@@ -275,6 +317,9 @@ def main() -> None:
         settings["mass"] = args.mass
     if args.restart:
         settings["method"] = "restart"
+    if args.potential is not None:
+        settings["potential"] = load_potential(args.potential, parse_key_values(args.pot_kwargs, "--pot-kwargs"))
+    settings.update(parse_key_values(args.overrides, "--set"))
 
     logger = configure_logging(work_dir / "logging.log")
     logger.info("\ninterfaces = {}\n".format(intfs) + "timestep = {}\n".format(settings["dt"]))
@@ -288,8 +333,9 @@ def main() -> None:
     for ens in sim.ensembles:
         print(ens.intfs)
 
-    plot_potential_1d(sim, intfs, work_dir)
-    if args.mode == "2d":
+    if args.mode == "1d":
+        plot_potential_1d(sim, intfs, work_dir)
+    else:
         plot_potential_surface(sim, intfs, work_dir)
 
     if args.show_plots:
