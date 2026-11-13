@@ -67,18 +67,18 @@ INTERFACE_SETS = {
 
 
 def build_settings(simtype: str, block: str | None = None, interfaces: list | None = None,
-                   friction: float = FRICTION) -> dict:
+                   friction: float = FRICTION, high_friction: bool = False, dt: float = 0.02) -> dict:
     settings = {
         "interfaces": INTERFACES if interfaces is None else interfaces,
         "simtype": "i*" if simtype == "istar" else simtype,
         "method": "load",
         "max_len": 200000,
-        "dt": 0.02,
+        "dt": dt,
         "temperature": TEMPERATURE,
         # Ballistic length sqrt(kT/m)/gamma = 2: a reactive path crosses most of
         # a channel without turning, so few turns occur where both channels turn.
         "friction": friction,
-        "high_friction": False,
+        "high_friction": high_friction,
         "max_cycles": 100000,
         "p_shoot": 0.9,
         "include_stateB": False,
@@ -151,6 +151,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--friction", type=float, default=FRICTION,
                         help=f"Langevin friction (default {FRICTION}); part of the default work-dir name (g<friction>).")
     parser.add_argument(
+        "--high-friction",
+        action="store_true",
+        help="Overdamped (Brownian) dynamics; only dt/friction matters. Adds 'bd' to the default work-dir name.",
+    )
+    parser.add_argument("--dt", type=float, default=0.02, help="Time step (default 0.02).")
+    parser.add_argument(
         "--interfaces",
         choices=sorted(INTERFACE_SETS),
         default="default",
@@ -177,7 +183,8 @@ def main() -> None:
     np.random.seed(args.seed)
 
     # The default name carries the dip depth (kT) and friction, so runs with other settings are not overwritten.
-    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, args.friction).replace(".", "") + ("alt" if args.alternate_init else "") \
+    tag = "stagd{:g}g{:g}".format(V_DIP / TEMPERATURE, args.friction).replace(".", "") + ("bd" if args.high_friction else "") \
+        + ("alt" if args.alternate_init else "") \
         + ({"upper": "blockU", "lower": "blockL"}[args.block_channel] if args.block_channel else "") \
         + ("" if args.interfaces == "default" else args.interfaces)
     work_dir = args.work_dir or Path("simulations") / "{}_{}_s{}".format(tag, args.simtype, args.seed)
@@ -186,7 +193,8 @@ def main() -> None:
     print(os.getcwd())
 
     interfaces = INTERFACE_SETS[args.interfaces]
-    settings = build_settings(args.simtype, block=args.block_channel, interfaces=interfaces, friction=args.friction)
+    settings = build_settings(args.simtype, block=args.block_channel, interfaces=interfaces, friction=args.friction,
+                              high_friction=args.high_friction, dt=args.dt)
     if args.p_shoot is not None:
         settings["p_shoot"] = args.p_shoot
     if args.max_cycles is not None:
