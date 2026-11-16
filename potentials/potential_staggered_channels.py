@@ -111,8 +111,8 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
         self.params["block"] = block
         self.params["V_block"] = 10.0 * V_peak if V_block is None else V_block
 
-    def potential_and_force_xy(self, y, x, xp=np):
-        """Return potential and (F_y, F_x) for arrays of points (y, x)."""
+    def potential_and_force_xy(self, x, y, xp=np):
+        """Return potential and (F_x, F_y) for arrays of points (x, y)."""
         self._validate_geometry()
         x = xp.asarray(x, dtype=float)
         y = xp.asarray(y, dtype=float)
@@ -132,8 +132,8 @@ class PotentialStaggeredChannels(PotentialRectangularChannels):
         forces = np.asarray([force for _, force in results]).reshape(x_cpu.shape + (2,))
         return (
             xp.asarray(values),
-            xp.asarray(forces[..., 1]),
             xp.asarray(forces[..., 0]),
+            xp.asarray(forces[..., 1]),
         )
 
     def potential_and_force(self, ph):
