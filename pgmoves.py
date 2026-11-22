@@ -326,6 +326,22 @@ def pg_swap_zero(ensembles):
     return "ACC", (new_path0, ptype0), (new_path1, ptype1)
 
 
+def pg_staple_weight(ptype, ens_id, n_ens):
+    """Weight of a stored staple path of type `ptype` in the ensemble `ens_id`.
+
+    The extension of an LML/RMR segment flips a coin to pick the end that is extended, so
+    shooting samples such a path with half the weight of an LMR/RML path. This is the same
+    rule as the factor 2 that tistools `get_weights_staple` applies to these paths in the
+    analysis: RMR in [1*], LML in the last ensemble, and both in between. `n_ens` is the
+    number of ensembles ([0-], [0*], [1*], ...).
+    """
+    if (ens_id == 2 and ptype == "RMR") or \
+       (ens_id == n_ens - 1 and ptype == "LML") or \
+       (2 < ens_id < n_ens - 1 and ptype in ("LML", "RMR")):
+        return 0.5
+    return 1.0
+
+
 def pg_swap(ensembles, idx):
     """ Performs a swap move between the last paths of two ensembles from an [i*] simulation.
 
@@ -488,6 +504,21 @@ def pg_swap(ensembles, idx):
     
     # Ensure the star region indices are valid (start index <= end index)
     if idx1l <= idx1r and idx2l <= idx2r:
+        # Metropolis factor with the weights of the paths in the ensembles: the swap
+        # must keep the distribution that the (coin flip) extension of the shooting move
+        # samples, which has half the weight for LML/RMR paths. Accepting every valid
+        # swap would bias the ensembles whenever a path changes type (and weight)
+        # between the two.
+        n_ens = len(ensembles)
+        id_lo, id_up = ensembles[idx].id, ensembles[idx+1].id
+        w_old = pg_staple_weight(lower_path.meta[0], id_lo, n_ens) * \
+                pg_staple_weight(upper_path.meta[0], id_up, n_ens)
+        w_new = pg_staple_weight(ptype1, id_up, n_ens) * \
+                pg_staple_weight(ptype2, id_lo, n_ens)
+        p_acc = min(1.0, w_new / w_old)
+        if np.random.rand() >= p_acc:
+            logger.info("Swap rejected by the path weights (p_acc = %f)", p_acc)
+            return "HAS", (upper_path, ptype2), (lower_path, ptype1)
         # Update star region indices and path types for both paths
         lower_path.staridx = (idx1l, idx1r)
         lower_path.meta[0] = ptype1
